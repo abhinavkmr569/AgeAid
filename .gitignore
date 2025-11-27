@@ -1,0 +1,30 @@
+Python
+
+pycache/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+Environment Variables (CRITICAL)
+
+.env
+
+Database
+
+*.sqlite3
+*.db
+
+OS Files
+
+.DS_Store
+Thumbs.db
+
+Docker
+
+.docker/
