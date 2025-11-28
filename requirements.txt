@@ -17,3 +17,4 @@ thefuzz             #<-- NEW: For text matching
 python-levenshtein  #<-- NEW: Makes fuzz faster
 python-dateutil     #<-- NEW: For smart date parsing
 altair              #<-- NEW: For charts with labels
+alembic

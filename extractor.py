@@ -46,26 +46,45 @@ def call_gemini_model(model_name: str, image_bytes: bytes, mime_type: str):
         ],
         config={"response_mime_type": "application/json", "response_schema": ExtractionResult}
     )
-    return response.parsed
+    return response
 
 def smart_extract(image_bytes: bytes, mime_type: str):
     print(f"⚡ Attempting Gemini 2.5 Flash...")
+    model_used = "gemini-2.5-flash"
+    tokens = 0 # <--- NEW: Default
     try:
-        data = call_gemini_model("gemini-2.5-flash", image_bytes, mime_type)
-        model_used = "gemini-2.5-flash"
+        response = call_gemini_model("gemini-2.5-flash", image_bytes, mime_type)
+        data = response.parsed
+
+        if response.usage_metadata:
+            tokens = response.usage_metadata.total_token_count
         
         avg = sum(r.confidence_score for r in data.results)/len(data.results) if data.results else 0
         
         # Fallback if confidence is low or critical fields missing
-        if avg < 75 or not data.results:
+        if avg < 90 or not data.results:
             print("⚠️ Low Confidence. Escalating to Gemini 2.5 Pro...")
-            data = call_gemini_model("gemini-2.5-pro", image_bytes, mime_type)
+            
             model_used = "gemini-2.5-pro"
+            response = call_gemini_model("gemini-2.5-pro", image_bytes, mime_type)
+            data = response.parsed
+
+            # Update Tokens (We take the Pro usage cost)
+            if response.usage_metadata:
+                tokens = response.usage_metadata.total_token_count
 
     except Exception as e:
         print(f"❌ Error: {e}. Retrying with Pro...")
-        data = call_gemini_model("gemini-2.5-pro", image_bytes, mime_type)
+
         model_used = "gemini-2.5-pro"
+        response = call_gemini_model("gemini-2.5-pro", image_bytes, mime_type)
+
+        data = response.parsed 
+
+        # Update Tokens (We take the Pro usage cost)
+        if response.usage_metadata:
+            tokens = response.usage_metadata.total_token_count  
+        
 
     return data, model_used
 

@@ -13,9 +13,11 @@ COPY . .
 # --- NEW LINE: Bake the certificate into the container ---
 # This creates the folder and copies the file in one step
 
+
 # First install certificate by running this in terminal
-# curl --create-dirs -o root.crt -O https://cockroachlabs.cloud/clusters/<YOUR_CLUSTER_ID>/cert
-COPY root.crt /root/.postgresql/root.crt
+
+# curl --create-dirs -o root.crt https://cockroachlabs.cloud/clusters/6e8c0eb1-0ae2-47a4-b0dd-a4d7e891bef2/cert
+# COPY root.crt /root/.postgresql/root.crt
 
 # 4. Create a startup script to run both servers
 # We create this file inside the container to avoid Windows line-ending issues

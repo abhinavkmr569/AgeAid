@@ -24,6 +24,14 @@ if 'trend_analysis' not in st.session_state: st.session_state['trend_analysis'] 
 if 'last_t' not in st.session_state: st.session_state['last_t'] = None # Fix for trend data caching
 
 # --- HELPER: HEALTH STATUS ---
+
+def calculate_cost(model_name, tokens):
+    if not tokens or not model_name: return 0.0
+    # Approx Pricing ($ per 1M tokens)
+    rates = {"gemini-2.5-flash": 0.10, "gemini-2.5-pro": 2.50}
+    rate = rates.get(model_name, 0.10)
+    return (tokens / 1_000_000) * rate
+
 def get_health_status(value, min_ref, max_ref):
     if value is None or value == -1: return (None, "#808080", "Info")
     try:
@@ -184,12 +192,31 @@ def render_history():
     try:
         res = requests.get(f"{API_URL}/user/{st.session_state['user_id']}/all_tests")
         if res.status_code == 200:
-            df = pd.DataFrame(res.json().get("data", []))
+            raw_data = res.json().get("data", [])
+            df = pd.DataFrame(raw_data)
+
             if not df.empty:
                 df['Date'] = df['Date'].apply(format_date_ui)
+
+                # --- NEW LOGIC: Calculate Cost ---
+                # We check if the API sent 'tokens_used' (it might be missing for old records)
+                if 'tokens_used' in df.columns:
+                    # 1. Calculate Cost per row
+                    df['Cost ($)'] = df.apply(lambda x: calculate_cost(x.get('ai_model'), x.get('tokens_used')), axis=1)
+                    
+                    # 2. Show Total Metric at the top
+                    total_cost = df['Cost ($)'].sum()
+                    st.metric("Total AI Cost", f"${total_cost:.4f}")
+
+                    # 3. Format the column nicely for the table (e.g. $0.00012)
+                    df['Cost ($)'] = df['Cost ($)'].apply(lambda x: f"${x:.6f}")
+
+                # Display the table
                 st.dataframe(df, use_container_width=True, hide_index=True)
-            else: st.info("No records.")
-    except: st.error("Error")
+            else: 
+                st.info("No records.")
+    except Exception as e: 
+        st.error(f"Error loading history: {e}")
 
 def show_trend():
     if st.button("← Back"): st.session_state['page'] = 'App'; st.rerun()

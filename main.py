@@ -83,15 +83,17 @@ def update_remarks(user_id: int, payload: UpdateContext, db: Session = Depends(g
 @app.post("/analyze")
 async def analyze(user_id: int = Form(...), file: UploadFile = File(...), db: Session = Depends(get_db)):
     file_bytes = await file.read()
-    try: data, model = smart_extract(file_bytes, file.content_type)
-    except Exception as e: raise HTTPException(500, str(e))
+    try: 
+        data, model, tokens = smart_extract(file_bytes, file.content_type)
+    except Exception as e: 
+        raise HTTPException(500, str(e))
     
     std_date = standardize_date(data.report_date)
     report = PatientReport(user_id=user_id, patient_name=data.patient_name, birth_date=data.birth_date, report_date=std_date, lab_name=data.lab_name)
     db.add(report); db.commit(); db.refresh(report)
     
     for r in data.results:
-        db.add(TestResult(report_id=report.id, test_name=normalize_test_name(r.test_name), value=r.value, unit=r.unit, min_ref=r.min_ref, max_ref=r.max_ref, confidence_score=r.confidence_score, ai_model_used=model))
+        db.add(TestResult(report_id=report.id, test_name=normalize_test_name(r.test_name), value=r.value, unit=r.unit, min_ref=r.min_ref, max_ref=r.max_ref, confidence_score=r.confidence_score, ai_model_used=model, tokens_used=tokens))
     db.commit()
     return {"status": "success", "data": data}
 
