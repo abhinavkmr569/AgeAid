@@ -138,7 +138,11 @@ def render_account_settings():
         curr_d = profile.get('diet_type', 'Omnivore')
         d = c1.selectbox("Diet Type", d_opts, index=d_opts.index(curr_d) if curr_d in d_opts else 0)
         
-        a = c2.select_slider("Activity Level", options=["Sedentary", "Moderate", "Active"], value=profile.get('activity_level', 'Moderate'))
+        # Activity Level with Help Tooltip
+        act_help = "Sedentary: Little/no exercise\nModerate: Exercise 1-3 times/week\nActive: Daily exercise or physical job"
+        a = c2.select_slider("Activity Level", options=["Sedentary", "Moderate", "Active"], 
+                             value=profile.get('activity_level', 'Moderate'),
+                             help=act_help)
         
         c3, c4 = st.columns(2)
         s_opts = ["Never", "Former", "Current"]
@@ -213,7 +217,11 @@ def signup():
         st.divider()
         st.subheader("Lifestyle")
         d = st.selectbox("Diet", ["Omnivore", "Veg", "Vegan", "Keto"])
-        a = st.select_slider("Activity", options=["Sedentary", "Moderate", "Active"])
+        
+        # Activity Level with Help Tooltip
+        act_help = "Sedentary: Little/no exercise\nModerate: Exercise 1-3 times/week\nActive: Daily exercise or physical job"
+        a = st.select_slider("Activity", options=["Sedentary", "Moderate", "Active"], help=act_help)
+        
         l1, l2 = st.columns(2)
         smoke = l1.radio("Smoking", ["Never", "Former", "Current"], horizontal=True)
         alcohol = l2.selectbox("Alcohol", ["None", "Social", "Moderate", "Frequent"])
@@ -355,13 +363,13 @@ def render_history():
             if not df.empty:
                 df['Date'] = df['Date'].apply(format_date_ui)
                 
-                if 'tokens_used' in df.columns:
-                    df['Cost ($)'] = df.apply(lambda x: calculate_cost(x.get('ai_model'), x.get('tokens_used')), axis=1)
-                    total_cost = df['Cost ($)'].sum()
-                    st.metric("Total AI Cost", f"${total_cost:.4f}")
-                    df['Cost ($)'] = df['Cost ($)'].apply(lambda x: f"${x:.6f}")
+                # Define columns to display (hiding AI internal metrics)
+                display_cols = ["Date", "Test Name", "Value", "Unit", "Reference", "Lab"]
+                
+                # Filter to ensure we only try to display columns that exist
+                cols_to_show = [c for c in display_cols if c in df.columns]
 
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                st.dataframe(df[cols_to_show], use_container_width=True, hide_index=True)
             else: st.info("No records.")
     except Exception as e: st.error(f"Error loading history: {e}")
 
