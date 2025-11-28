@@ -13,6 +13,22 @@ COPY . .
 # 4. EXPLICITLY Copy Cert to App Folder
 COPY root.crt /app/root.crt
 
+# --- SSL CERTIFICATE SETUP INSTRUCTIONS ---
+#
+# 🍓 FOR RASPBERRY PI (Linux/Docker Host):
+# Run these commands in your project folder before building:
+#   rm root.crt
+#   curl -o root.crt https://letsencrypt.org/certs/isrgrootx1.pem
+#   head -n 5 root.crt  <-- Verify it says "-----BEGIN CERTIFICATE-----"
+#
+# 🖥️ FOR WINDOWS (Local Python Development):
+# You must place the certificate in your AppData folder for local scripts to find it.
+# PowerShell Command:
+#   New-Item -ItemType Directory -Force -Path "$env:APPDATA\postgresql"
+#   Invoke-WebRequest -Uri "https://letsencrypt.org/certs/isrgrootx1.pem" -OutFile "$env:APPDATA\postgresql\root.crt"
+#
+# ------------------------------------------
+
 # 5. Place it where Postgres expects it & Fix Permissions
 # This is the critical block that was broken
 RUN mkdir -p /root/.postgresql && \
