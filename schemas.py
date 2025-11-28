@@ -70,3 +70,12 @@ class UserResponse(BaseModel):
     id: int
     email: str
     full_name: str
+
+# --- NEW: PROFILE UPDATE MODEL ---
+class UserProfileUpdate(BaseModel):
+    diet_type: Optional[str] = None
+    activity_level: Optional[str] = None
+    smoking_status: Optional[str] = None
+    alcohol_freq: Optional[str] = None
+    sleep_hours: Optional[float] = None
+    medical_history: Optional[str] = None
