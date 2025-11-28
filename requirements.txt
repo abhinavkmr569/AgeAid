@@ -18,3 +18,4 @@ python-levenshtein  #<-- NEW: Makes fuzz faster
 python-dateutil     #<-- NEW: For smart date parsing
 altair              #<-- NEW: For charts with labels
 alembic
+pydantic[email]==2.9.2

@@ -47,3 +47,6 @@ class TestResult(Base):
     max_ref = Column(Float, nullable=True)
     confidence_score = Column(Integer)
     ai_model_used = Column(String)
+    
+    # --- THIS LINE MUST BE HERE ---
+    tokens_used = Column(Integer, default=0)

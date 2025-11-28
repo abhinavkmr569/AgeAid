@@ -4,24 +4,25 @@ from thefuzz import process
 STANDARD_TESTS = {
     # --- DIABETES ---
     "HbA1c": ["hba1c", "glycated hemoglobin", "glycosylated hb", "hb a1c", "a1c", "hemoglobin a1c", "glyco hb"],
-    "Fasting Glucose": ["fasting blood sugar", "fbs", "glucose fasting", "sugar fasting", "blood glucose (f)", "plasma glucose fasting", "fasting blood sugar(glucose)"],
+    "Fasting Glucose": ["fasting blood sugar", "fbs", "glucose fasting", "sugar fasting", "blood glucose (f)", "plasma glucose fasting", "fasting blood sugar(glucose)", "blood sugar (f)"],
     "Post Prandial Glucose": ["ppbs", "post prandial blood sugar", "glucose pp", "blood glucose (pp)", "2 hr post prandial"],
     "Random Glucose": ["rbs", "random blood sugar", "glucose random", "b.s.r"],
     "Average Glucose": ["estimated average glucose", "eag", "avg glucose", "average blood glucose (abg)"],
 
     # --- LIPIDS ---
     "Total Cholesterol": ["total cholesterol", "cholesterol total", "s. cholesterol", "serum cholesterol"],
-    "HDL Cholesterol": ["hdl", "high density lipoprotein", "hdl cholesterol", "good cholesterol", "hdl cholesterol direct"],
-    "LDL Cholesterol": ["ldl", "low density lipoprotein", "ldl cholesterol", "bad cholesterol", "ldl cholesterol direct", "ldl direct"],
-    "VLDL Cholesterol": ["vldl", "very low density lipoprotein", "vldl cholesterol"],
+    "HDL Cholesterol": ["hdl", "high density lipoprotein", "hdl cholesterol", "good cholesterol", "hdl cholesterol direct", "hdlc"],
+    "LDL Cholesterol": ["ldl", "low density lipoprotein", "ldl cholesterol", "bad cholesterol", "ldl cholesterol direct", "ldl direct", "ldlc"],
+    "VLDL Cholesterol": ["vldl", "very low density lipoprotein", "vldl cholesterol", "vldlc"],
     "Non-HDL Cholesterol": ["non-hdl cholesterol", "non hdl", "cholesterol non hdl"], # <--- NEW
     "Triglycerides": ["triglycerides", "tgl", "s. triglycerides", "serum triglycerides"],
     
     # Ratios
-    "Total/HDL Ratio": ["chol/hdl ratio", "tc/hdl cholesterol ratio", "risk ratio", "hdl ratio", "cholesterol/hdl ratio", "tc/ hdl cholesterol ratio"],
-    "LDL/HDL Ratio": ["ldl/hdl ratio", "ldl/hdl"],
-    "HDL/LDL Ratio": ["hdl/ldl ratio", "hdl/ldl"], # <--- NEW
-    "Trig/HDL Ratio": ["trig/hdl ratio", "triglycerides/hdl ratio", "tgl/hdl ratio"], # <--- NEW
+    "Total Cholesterol/HDL Ratio": ["chol/hdl ratio", "tc/hdl cholesterol ratio", "risk ratio", "hdl ratio", "cholesterol/hdl ratio", "tc/ hdl cholesterol ratio", "tc/hdlc ratio", "tc/hdlc"],
+    "LDL/HDL Ratio": ["ldl/hdl ratio", "ldl/hdl", "ldlc/hdlc ratio", "ldlc/hdlc"],
+    "HDL/LDL Ratio": ["hdl/ldl ratio", "hdl/ldl", "hdlc/ldlc ratio", "hdlc/ldlc"], # <--- NEW
+    "Trig/HDL Ratio": ["trig/hdl ratio", "triglycerides/hdl ratio", "tgl/hdl ratio", "triglycerides/hdlc ratio", "triglycerides/hdlc", "tgl/hdlc"], # <--- NEW
+    
 
     # --- THYROID ---
     "Thyroid Stimulating Hormone": ["tsh", "thyroid stimulating hormone", "thyrotropin", "t.s.h", "tsh ultrasensitive", "tsh-ultrasensitive", "tsh 3rd gen"],
@@ -33,13 +34,13 @@ STANDARD_TESTS = {
 
     # --- COMPLETE BLOOD COUNT (CBC) ---
     "Hemoglobin": ["hemoglobin", "hb", "hgb", "haemoglobin"],
-    "PCV / Hematocrit": ["pcv", "packed cell volume", "hematocrit", "hct", "hematocrit(pcv)"],
+    "PCV or Hematocrit": ["pcv", "packed cell volume", "hematocrit", "hct", "hematocrit(pcv)"],
     "RBC Count": ["rbc", "red blood cell count", "erythrocyte count", "total rbc"],
     "MCV": ["mcv", "mean corpuscular volume", "mean cell volume", "mean corpuscular volume (mcv)"],
     "MCH": ["mch", "mean corpuscular hemoglobin", "mean cell hemoglobin", "mean corpuscular hemoglobin (mch)", "corpuscular hemoglobin(mch)"],
     "MCHC": ["mchc", "mean corpuscular hemoglobin concentration", "corp.hemo.conc(mchc)", "mean corp. hemo. conc (mchc)"],
-    "RDW": ["rdw", "red cell distribution width", "rdw-cv", "red cell distribution width (rdw-cv)"], # Kept CV as standard RDW usually
-    "RDW-SD": ["rdw-sd", "red cell distribution width-sd(rdw-sd)", "red cell distribution width - sd (rdw-sd)"], # <--- NEW
+    "RDW": ["rdw", "red cell distribution width", "rdw-cv", "red cell distribution width (rdw-cv)", "red cell distribution width cv"], # Kept CV as standard RDW usually
+    "RDW-SD": ["rdw-sd", "red cell distribution width-sd(rdw-sd)", "red cell distribution width - sd (rdw-sd)", "red cell distribution width sd"], # <--- NEW
     "Mentzer Index": ["mentzer index", "mi"], # <--- NEW
     "RDWI": ["rdwi", "red cell distribution width index"], # <--- NEW
     
@@ -61,6 +62,7 @@ STANDARD_TESTS = {
     "Immature Granulocytes - Absolute": ["immature granulocytes (ig)", "immature granulocytes absolute"],
     
     "Platelet Count": ["platelet count", "plt", "thrombocyte count", "platelets"],
+    "Mean Platelet Volume (MPV)": ["mpv", "mean platelet volume", "mean platelet volume (mpv)", "platelet volume (mpv)"],
     "ESR": ["erythrocyte sedimentation rate", "esr", "sed rate", "westergren", "erythrocyte sedimentation rate (esr)"],
 
     # --- KIDNEY FUNCTION (KFT) ---
@@ -71,7 +73,7 @@ STANDARD_TESTS = {
     "Urea/Creatinine Ratio": ["urea / sr.creatinine ratio", "urea/creatinine ratio", "urea/creat ratio"],
     "Uric Acid": ["uric acid", "s. uric acid", "serum uric acid"],
     "Calcium": ["calcium", "s. calcium", "total calcium"],
-    "eGFR": ["egfr", "estimated gfr", "glomerular filtration rate", "est. glomerular filtration rate (egfr)"],
+    "eGFR": ["egfr", "estimated gfr", "glomerular filtration rate", "est. glomerular filtration rate (egfr)", "egfr (estimated glomerular filtration rate)", "estimated glomerular filtration rate (egfr)", "estimated glomerular filtration rate"],
     "Phosphorous": ["phosphorous", "phosphate", "serum phosphorous"], # <--- NEW from report
     "Magnesium": ["magnesium", "serum magnesium"], # <--- NEW from report
 
@@ -79,18 +81,18 @@ STANDARD_TESTS = {
     "Total Bilirubin": ["total bilirubin", "t. bilirubin", "bilirubin total", "bilirubin - total"],
     "Direct Bilirubin": ["direct bilirubin", "d. bilirubin", "conjugated bilirubin", "bilirubin -direct"],
     "Indirect Bilirubin": ["indirect bilirubin", "unconjugated bilirubin", "bilirubin (indirect)"],
-    "SGOT / AST": ["sgot", "ast", "aspartate aminotransferase", "serum aspartate transaminase", "aspartate aminotransferase (sgot)"],
-    "SGPT / ALT": ["sgpt", "alt", "alanine aminotransferase", "serum alanine transaminase", "alanine transaminase (sgpt)"],
+    "SGOT or AST": ["sgot", "ast", "aspartate aminotransferase", "serum aspartate transaminase", "aspartate aminotransferase (sgot)"],
+    "SGPT or ALT": ["sgpt", "alt", "alanine aminotransferase", "serum alanine transaminase", "alanine transaminase (sgpt)"],
     "SGOT/SGPT Ratio": ["sgot/sgpt ratio", "ast/alt ratio"], # <--- NEW
     "Alkaline Phosphatase": ["alp", "alkaline phosphatase", "s. alp"],
     "Total Protein": ["total protein", "s. protein", "protein total", "protein - total"],
     "Albumin": ["albumin", "s. albumin", "albumin - serum"],
     "Globulin": ["globulin", "serum globulin"],
     "A/G Ratio": ["a/g ratio", "albumin globulin ratio", "serum alb/globulin ratio"],
-    "GGT": ["ggt", "gamma glutamyl transferase", "gamma gt", "gamma glutamyl transferase (ggt)"],
+    "GGT": ["ggt", "gamma glutamyl transferase", "gamma gt", "gamma glutamyl transferase (ggt)", "ggtp"],
 
     # --- VITAMINS & MINERALS ---
-    "Vitamin D": ["vitamin d", "25-oh vitamin d", "total vitamin d", "25-oh vitamin d (total)", "25 hydroxy cholecalciferol"],
+    "Vitamin D - Total": ["vitamin d", "25-oh vitamin d", "total vitamin d", "25-oh vitamin d (total)", "25 hydroxy cholecalciferol"],
     "Vitamin B12": ["vitamin b12", "cobalamin", "cyanocobalamin", "vitamin b-12"],
     "Iron": ["iron", "serum iron", "fe"],
     "Ferritin": ["ferritin", "serum ferritin"],
@@ -106,9 +108,9 @@ STANDARD_TESTS = {
     # --- URINE EXAMINATION ---
     "Urine Color": ["urine colour", "color", "physical examination color", "colour"],
     "Urine pH": ["urine ph", "reaction", "ph"],
-    "Specific Gravity": ["specific gravity", "sp. gravity"],
-    "Urine Protein/Albumin": ["urine protein", "urine albumin", "albumin (urine)", "urinary protein"],
-    "Urine Sugar/Glucose": ["urine sugar", "urine glucose", "glucose (urine)", "urinary glucose"],
+    "Urine Specific Gravity": ["specific gravity", "sp. gravity"],
+    "Urine Protein or Albumin": ["urine protein", "urine albumin", "albumin (urine)", "urinary protein"],
+    "Urine Sugar or Glucose": ["urine sugar", "urine glucose", "glucose (urine)", "urinary glucose"],
     "Urine Ketones": ["urine ketone", "ketones", "acetone", "urine ketone"],
     "Urine Pus Cells": ["pus cells", "leukocytes", "wbc (urine)", "urinary leucocytes (pus cells)"],
     "Urine RBCs": ["urine rbc", "red blood cells (urine)", "red blood cells"],
@@ -120,12 +122,18 @@ STANDARD_TESTS = {
     "Urine Bilirubin": ["urinary bilirubin"],
     "Urine Urobilinogen": ["urobilinogen"],
     "Urine Nitrite": ["nitrite"],
-    "Urine Blood": ["urine blood"]
+    "Urine Blood": ["urine blood"],
+
+    # --- METABOLIC PANEL ---
+    "Lactate Dehydrogenase (LDH)": ["lactate dehydrogenase", "ldh", "lactate dehydrogenase (ldh)", "ldh (lactate dehydrogenase)"],
+
+    # --- CANCER TESTS ---
+    "PSA (Prostate Specific Antigen)": ["psa", "prostate specific antigen", "prostate specific antigen (psa)", "psa (prostate specific antigen)"]
 }
 
 def normalize_test_name(raw_name):
     if not raw_name: return "Unknown"
-    raw_lower = str(raw_name).lower().strip()
+    raw_lower = str(raw_name).lower().strip() 
     
     # 1. Exact Match Check
     for std, aliases in STANDARD_TESTS.items():

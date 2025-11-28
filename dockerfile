@@ -7,31 +7,31 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 3. Copy All Code (main.py, app.py, extractor.py, etc.)
+# 3. Copy All Code
 COPY . .
 
-# --- NEW LINE: Bake the certificate into the container ---
-# This creates the folder and copies the file in one step
+# 4. EXPLICITLY Copy Cert to App Folder
+COPY root.crt /app/root.crt
 
+# 5. Place it where Postgres expects it & Fix Permissions
+# This is the critical block that was broken
+RUN mkdir -p /root/.postgresql && \
+    cp /app/root.crt /root/.postgresql/root.crt && \
+    chmod 600 /root/.postgresql/root.crt
 
-# First install certificate by running this in terminal
-
-# curl --create-dirs -o root.crt https://cockroachlabs.cloud/clusters/6e8c0eb1-0ae2-47a4-b0dd-a4d7e891bef2/cert
-# COPY root.crt /root/.postgresql/root.crt
-
-# 4. Create a startup script to run both servers
-# We create this file inside the container to avoid Windows line-ending issues
+# 6. Startup Script
 RUN echo '#!/bin/bash\n\
+    echo "Running Database Migrations..."\n\
+    alembic upgrade head\n\
+    echo "Starting Services..."\n\
     uvicorn main:app --host 0.0.0.0 --port 8080 & \n\
     streamlit run app.py --server.port 8501 --server.address 0.0.0.0\n\
     ' > start.sh
 
-# 5. Make the script executable
+# 7. Permissions & Ports
 RUN chmod +x start.sh
-
-# 6. Expose Ports (8080 for API, 8501 for UI)
 EXPOSE 8080
 EXPOSE 8501
 
-# 7. Run the script
+# 8. Run
 CMD ["./start.sh"]

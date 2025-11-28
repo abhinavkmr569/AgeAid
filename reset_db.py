@@ -18,6 +18,8 @@ with engine.connect() as conn:
     conn.execute(text("DROP TABLE IF EXISTS test_results CASCADE;"))
     conn.execute(text("DROP TABLE IF EXISTS patient_reports CASCADE;"))
     conn.execute(text("DROP TABLE IF EXISTS users CASCADE;"))
+    # --- CRITICAL NEW LINE ---
+    conn.execute(text("DROP TABLE IF EXISTS alembic_version;")) 
     conn.commit()
 
-print("✅ Database wiped clean. Restart your Docker container to recreate tables!")
+print("✅ Database wiped clean (including Alembic history).")

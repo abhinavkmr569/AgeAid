@@ -9,17 +9,26 @@ load_dotenv()
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
-# 1. Fix Driver Prefix
+# 1. Fix Driver Prefix for CockroachDB
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "cockroachdb://", 1)
 
-# 2. SSL Certificate Handling (Windows Fix)
-if sys.platform == "win32" and "sslrootcert" not in DATABASE_URL:
-    appdata = os.environ.get("APPDATA")
-    if appdata:
-        cert_path = os.path.join(appdata, "postgresql", "root.crt")
-        if os.path.exists(cert_path):
-            DATABASE_URL += f"&sslrootcert={cert_path}"
+# 2. SSL Certificate Handling
+# Docker Strategy: We rely on the Dockerfile placing the cert in /root/.postgresql/root.crt
+# Windows Strategy: We manually point to AppData
+
+win_cert_path = os.path.join(os.environ.get("APPDATA", ""), "postgresql", "root.crt")
+operator = "&" if "?" in DATABASE_URL else "?"
+
+if sys.platform == "win32" and os.path.exists(win_cert_path):
+    # Only modify URL for Windows
+    if "sslrootcert" not in DATABASE_URL:
+        DATABASE_URL += f"{operator}sslrootcert={win_cert_path}"
+        print(f"🔒 Using Windows SSL Cert: {win_cert_path}")
+else:
+    # On Linux/Docker, do NOT append sslrootcert.
+    # The driver will automatically check ~/.postgresql/root.crt which we populated.
+    print("🔒 Using System Default SSL Cert Path (Docker)")
 
 # 3. Create Engine
 try:

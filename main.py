@@ -14,6 +14,7 @@ import uvicorn
 import logging
 import json
 from datetime import datetime
+import traceback
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -80,22 +81,64 @@ def update_remarks(user_id: int, payload: UpdateContext, db: Session = Depends(g
     return {"status": "success", "logs": logs}
 
 # --- DATA ENDPOINTS ---
+# ... inside @app.post("/analyze") ...
 @app.post("/analyze")
 async def analyze(user_id: int = Form(...), file: UploadFile = File(...), db: Session = Depends(get_db)):
     file_bytes = await file.read()
-    try: 
+    print(f"📥 Analyzing {file.filename}...")
+
+    try:
+        # 1. Extract Data
         data, model, tokens = smart_extract(file_bytes, file.content_type)
-    except Exception as e: 
-        raise HTTPException(500, str(e))
-    
-    std_date = standardize_date(data.report_date)
-    report = PatientReport(user_id=user_id, patient_name=data.patient_name, birth_date=data.birth_date, report_date=std_date, lab_name=data.lab_name)
-    db.add(report); db.commit(); db.refresh(report)
-    
-    for r in data.results:
-        db.add(TestResult(report_id=report.id, test_name=normalize_test_name(r.test_name), value=r.value, unit=r.unit, min_ref=r.min_ref, max_ref=r.max_ref, confidence_score=r.confidence_score, ai_model_used=model, tokens_used=tokens))
-    db.commit()
-    return {"status": "success", "data": data}
+        print(f"🤖 AI Success. Model: {model}, Tokens: {tokens}")
+        
+        # 2. Create Report Entry
+        std_date = standardize_date(data.report_date)
+        report = PatientReport(
+            user_id=user_id, 
+            patient_name=data.patient_name, 
+            birth_date=data.birth_date, 
+            report_date=std_date, 
+            lab_name=data.lab_name
+        )
+        db.add(report)
+        db.commit()
+        db.refresh(report)
+
+        # 3. Save Results (With Filtering)
+        saved_count = 0
+        for r in data.results:
+            # --- FILTERING LOGIC ---
+            # If value is a string (e.g. "Yellow", "Absent"), skip it!
+            # We only want numbers for the trend graph.
+            try:
+                clean_value = float(r.value)
+            except (ValueError, TypeError):
+                print(f"⚠️ Skipping non-numeric result: {r.test_name} = {r.value}")
+                continue 
+
+            db.add(TestResult(
+                report_id=report.id, 
+                test_name=normalize_test_name(r.test_name), 
+                value=clean_value, # Use the cleaned float
+                unit=r.unit, 
+                min_ref=r.min_ref, 
+                max_ref=r.max_ref, 
+                confidence_score=r.confidence_score, 
+                ai_model_used=model,
+                tokens_used=tokens
+            ))
+            saved_count += 1
+            
+        db.commit()
+        print(f"✅ Successfully saved {saved_count} numeric results.")
+        return {"status": "success", "data": data}
+
+    except Exception as e:
+        # CRITICAL: Print the full error so we can see it in Docker logs
+        print("❌ CRITICAL ERROR IN /ANALYZE:")
+        print(traceback.format_exc()) 
+        raise HTTPException(500, f"Server Error: {str(e)}")
 
 @app.get("/user/{user_id}/all_tests")
 def get_all_tests(user_id: int, db: Session = Depends(get_db)):

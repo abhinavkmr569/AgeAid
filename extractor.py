@@ -86,7 +86,7 @@ def smart_extract(image_bytes: bytes, mime_type: str):
             tokens = response.usage_metadata.total_token_count  
         
 
-    return data, model_used
+    return data, model_used, tokens 
 
 # ... (Keep analyze_trend_with_gemini same as before) ...
 def analyze_trend_with_gemini(user_profile, primary_target, history_by_date, current_remark):

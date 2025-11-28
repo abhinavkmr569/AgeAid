@@ -2,8 +2,11 @@ import streamlit as st
 import requests
 import pandas as pd
 import altair as alt
+import time
 from datetime import datetime, date
+from requests.exceptions import ConnectionError
 from utils import format_date_ui
+
 try: from clusters import TEST_CLUSTERS
 except: TEST_CLUSTERS = {}
 
@@ -11,8 +14,7 @@ except: TEST_CLUSTERS = {}
 st.set_page_config(page_title="Health AI", layout="wide", initial_sidebar_state="expanded")
 API_URL = "http://127.0.0.1:8080"
 
-# 2. SESSION STATE INITIALIZATION (CRITICAL: Must be at the top)
-# This block ensures keys exist before any logic tries to access them.
+# 2. SESSION STATE INITIALIZATION
 if 'user_id' not in st.session_state: st.session_state['user_id'] = None
 if 'user_name' not in st.session_state: st.session_state['user_name'] = None
 if 'page' not in st.session_state: st.session_state['page'] = 'Login'
@@ -20,10 +22,37 @@ if 'selected_test' not in st.session_state: st.session_state['selected_test'] = 
 if 'current_remarks' not in st.session_state: st.session_state['current_remarks'] = ""
 if 'trend_raw' not in st.session_state: st.session_state['trend_raw'] = {}
 if 'health_logs' not in st.session_state: st.session_state['health_logs'] = []
-if 'trend_analysis' not in st.session_state: st.session_state['trend_analysis'] = None  # Fix for analysis persistence
-if 'last_t' not in st.session_state: st.session_state['last_t'] = None # Fix for trend data caching
+if 'trend_analysis' not in st.session_state: st.session_state['trend_analysis'] = None
+if 'last_t' not in st.session_state: st.session_state['last_t'] = None
 
-# --- HELPER: HEALTH STATUS ---
+# --- HELPERS ---
+
+def safe_api_call(method, endpoint, **kwargs):
+    """
+    Robust API caller that handles startup delays and transient errors.
+    """
+    url = f"{API_URL}{endpoint}"
+    # Try 3 times
+    for attempt in range(3):
+        try:
+            if method == "POST":
+                res = requests.post(url, **kwargs)
+            else:
+                res = requests.get(url, **kwargs)
+            
+            # If we get a 500-504 error, wait and retry
+            if res.status_code in [500, 502, 503, 504]: 
+                time.sleep(1)
+                continue
+                
+            return res
+            
+        except ConnectionError:
+            time.sleep(1)
+            continue
+            
+    # If all attempts fail, return an empty response to avoid crashing
+    return requests.Response()
 
 def calculate_cost(model_name, tokens):
     if not tokens or not model_name: return 0.0
@@ -64,13 +93,18 @@ def login():
     password = st.text_input("Password", type="password")
     if st.button("Log In", type="primary"):
         try:
-            res = requests.post(f"{API_URL}/login", json={"email": email, "password": password})
+            res = safe_api_call("POST", "/login", json={"email": email, "password": password})
             if res.status_code == 200:
                 d = res.json()
                 st.session_state.update({'user_id': d['user_id'], 'user_name': d['name'], 'page': 'App'})
                 st.rerun()
+            elif res.status_code == 422:
+                st.error("Invalid data format")
             else: st.error("Invalid Credentials")
-        except: st.error("Backend offline")
+        except ConnectionError:
+            st.error("Backend is still starting up. Please wait 5 seconds and try again.")
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
 
 def signup():
     st.header("📝 Create Profile")
@@ -93,9 +127,20 @@ def signup():
         ai = st.checkbox("I consent to AI processing.", value=True)
         if st.form_submit_button("Sign Up", type="primary"):
             payload = {"email": email, "password": password, "full_name": name, "dob": str(dob), "gender": gender, "medical_history": med, "activity_level": a, "diet_type": d, "alcohol_freq": alcohol, "smoking_status": smoke, "sleep_hours": s, "ai_consent": ai}
-            res = requests.post(f"{API_URL}/signup", json=payload)
-            if res.status_code == 200: st.success("Done! Login."); st.session_state['page']='Login'; st.rerun()
-            else: st.error(res.text)
+            try:
+                res = safe_api_call("POST", "/signup", json=payload)
+                if res.status_code == 200:
+                    st.success("Done! Login.")
+                    st.session_state['page'] = 'Login'
+                    st.rerun()
+                elif res.status_code == 422:
+                    errors = res.json().get("detail", [])
+                    if isinstance(errors, list):
+                        error_msg = "\n".join([f"• {e['loc'][-1]}: {e['msg']}" for e in errors])
+                        st.error(f"⚠️ Please fix the following:\n{error_msg}")
+                    else: st.error(f"Validation Error: {errors}")
+                else: st.error(f"Error: {res.text}")
+            except Exception as e: st.error(f"Connection Failed: {e}")
 
 # --- DASHBOARD ---
 def render_home():
@@ -104,11 +149,12 @@ def render_home():
     # Fetch Logs
     if not st.session_state['health_logs']:
         try:
-            r = requests.get(f"{API_URL}/user/{st.session_state['user_id']}/profile").json()
-            st.session_state['health_logs'] = r.get('logs', [])
+            r = safe_api_call("GET", f"/user/{st.session_state['user_id']}/profile")
+            if r.status_code == 200:
+                st.session_state['health_logs'] = r.json().get('logs', [])
         except: pass
 
-    # Remarks UI (Timeline Style)
+    # Remarks UI
     with st.container():
         st.subheader("📝 Health Journal")
         if st.session_state['health_logs']:
@@ -119,44 +165,60 @@ def render_home():
         with st.form("add_log", clear_on_submit=True):
             new_rem = st.text_area("Add Entry:", height=70, placeholder="e.g. Started gym today")
             if st.form_submit_button("Add"):
-                requests.post(f"{API_URL}/user/{st.session_state['user_id']}/update_remarks", json={"remarks": new_rem})
-                # Optimistic Update
+                # FIX 1: Use safe_api_call for adding logs
+                safe_api_call("POST", f"/user/{st.session_state['user_id']}/update_remarks", json={"remarks": new_rem})
                 ts = datetime.now().strftime("%Y-%m-%d %H:%Mhrs")
                 st.session_state['health_logs'].append({"timestamp": ts, "content": new_rem})
-                st.session_state['current_remarks'] = new_rem # Keep latest as context
+                st.session_state['current_remarks'] = new_rem
                 st.rerun()
 
     st.divider()
 
     # Upload
     with st.expander("📤 Upload Reports", expanded=True):
-        ups = st.file_uploader("Files", type=["pdf","jpg","png"], accept_multiple_files=True)
-        if ups and st.button(f"Process {len(ups)}"):
-            p = st.progress(0)
-            for i, f in enumerate(ups):
-                try: requests.post(f"{API_URL}/analyze", files={"file": (f.name, f.getvalue(), f.type)}, data={"user_id": st.session_state['user_id']})
-                except: pass
-                p.progress((i+1)/len(ups))
-            st.success("Done!"); st.rerun()
+            ups = st.file_uploader("Files", type=["pdf","jpg","png"], accept_multiple_files=True)
+            
+            if ups and st.button(f"Process {len(ups)} Files"):
+                status_text = st.empty()
+                progress_bar = st.progress(0)
+                total_files = len(ups)
+                
+                for i, f in enumerate(ups):
+                    status_text.markdown(f"**⏳ Processing ({i+1}/{total_files}) reports:** `{f.name}`...")
+                    try:
+                        # FIX 2: Use safe_api_call for uploads
+                        safe_api_call("POST", "/analyze", 
+                            files={"file": (f.name, f.getvalue(), f.type)}, 
+                            data={"user_id": st.session_state['user_id']}
+                        )
+                    except Exception as e:
+                        st.error(f"Failed to process {f.name}")
+                    progress_bar.progress((i + 1) / total_files)
+                
+                status_text.success(f"✅ Done! Processed {total_files} reports.")
+                time.sleep(1.5)
+                st.rerun()
 
     # Sidebar History
     st.sidebar.header("📜 Report History")
+    res_hist = safe_api_call("GET", f"/user/{st.session_state['user_id']}/history")
     try:
-        hist = requests.get(f"{API_URL}/user/{st.session_state['user_id']}/history").json().get("reports", [])
+        hist = res_hist.json().get("reports", [])
         report_map = {format_date_ui(h['date']): h['id'] for h in hist}
         selected_report_id = None
         if report_map:
             sel_date = st.sidebar.radio("Select:", list(report_map.keys()))
             selected_report_id = report_map[sel_date]
         else: st.sidebar.info("No reports.")
-    except: st.sidebar.error("Connection Error")
+    except: st.sidebar.warning("Syncing...")
     
     if st.sidebar.button("Logout"): st.session_state.clear(); st.rerun()
 
     # Report View
     if selected_report_id:
-        try:
-            d = requests.get(f"{API_URL}/report/{selected_report_id}").json()
+        res_rep = safe_api_call("GET", f"/report/{selected_report_id}")
+        if res_rep.status_code == 200:
+            d = res_rep.json()
             st.subheader(f"📋 {format_date_ui(d['report_date'])} | {d.get('lab', 'Unknown Lab')}")
             for i, r in enumerate(d.get("results", [])):
                 score, color, status = get_health_status(r['value'], r.get('min_ref'), r.get('max_ref'))
@@ -172,7 +234,7 @@ def render_home():
                         c4.progress(int(score))
                         c4.markdown(f"<span style='color:{color}'>● {status}</span>", unsafe_allow_html=True)
                     st.write("---")
-        except: st.error("Failed to load report")
+        else: st.error("Loading report...")
     else: st.info("Select a report.")
 
 def render_analysis():
@@ -181,42 +243,32 @@ def render_analysis():
         cluster = st.selectbox("Select System:", list(TEST_CLUSTERS.keys()))
         if st.button(f"Analyze {cluster}"):
             with st.spinner("Consulting AI..."):
-                # Use most recent remark
                 context = st.session_state.get('current_remarks', '')
-                res = requests.post(f"{API_URL}/analyze_trend", data={"user_id": st.session_state['user_id'], "test_name": cluster, "remarks": context})
+                # FIX 3: Use safe_api_call for analysis
+                res = safe_api_call("POST", "/analyze_trend", data={"user_id": st.session_state['user_id'], "test_name": cluster, "remarks": context})
                 if res.status_code == 200: st.markdown(res.json().get('analysis')); st.warning("AI Generated.")
-                else: st.error("Failed")
+                else: st.error("Failed to generate analysis.")
 
 def render_history():
     st.header("📜 Full History")
     try:
-        res = requests.get(f"{API_URL}/user/{st.session_state['user_id']}/all_tests")
+        res = safe_api_call("GET", f"/user/{st.session_state['user_id']}/all_tests")
         if res.status_code == 200:
             raw_data = res.json().get("data", [])
             df = pd.DataFrame(raw_data)
 
             if not df.empty:
                 df['Date'] = df['Date'].apply(format_date_ui)
-
-                # --- NEW LOGIC: Calculate Cost ---
-                # We check if the API sent 'tokens_used' (it might be missing for old records)
+                
                 if 'tokens_used' in df.columns:
-                    # 1. Calculate Cost per row
                     df['Cost ($)'] = df.apply(lambda x: calculate_cost(x.get('ai_model'), x.get('tokens_used')), axis=1)
-                    
-                    # 2. Show Total Metric at the top
                     total_cost = df['Cost ($)'].sum()
                     st.metric("Total AI Cost", f"${total_cost:.4f}")
-
-                    # 3. Format the column nicely for the table (e.g. $0.00012)
                     df['Cost ($)'] = df['Cost ($)'].apply(lambda x: f"${x:.6f}")
 
-                # Display the table
                 st.dataframe(df, use_container_width=True, hide_index=True)
-            else: 
-                st.info("No records.")
-    except Exception as e: 
-        st.error(f"Error loading history: {e}")
+            else: st.info("No records.")
+    except Exception as e: st.error(f"Error loading history: {e}")
 
 def show_trend():
     if st.button("← Back"): st.session_state['page'] = 'App'; st.rerun()
@@ -224,17 +276,19 @@ def show_trend():
     st.title(f"📈 {test}")
     
     with st.spinner("Analyzing Trend..."):
-        # Initial Fetch
         if 'trend_raw' not in st.session_state or st.session_state.get('last_t') != test:
-            res = requests.post(f"{API_URL}/analyze_trend", data={"user_id": st.session_state['user_id'], "test_name": test})
-            st.session_state['trend_raw'] = res.json()
-            st.session_state['last_t'] = test
-            st.session_state['trend_analysis'] = None # Reset analysis on new test
+            res = safe_api_call("POST", "/analyze_trend", data={"user_id": st.session_state['user_id'], "test_name": test})
+            if res.status_code == 200:
+                st.session_state['trend_raw'] = res.json()
+                st.session_state['last_t'] = test
+                st.session_state['trend_analysis'] = None
+            else:
+                st.error(f"Could not load trend. (Status: {res.status_code})")
+                return
             
         hist = st.session_state['trend_raw'].get('history', [])
         
         if hist:
-            # Date Slider Logic
             dates = [datetime.strptime(h['date'], "%Y-%m-%d").date() for h in hist]
             if len(dates) > 1:
                 s_range = st.slider("Timeline:", min(dates), max(dates), (min(dates), max(dates)), format="DD/MM/YYYY")
@@ -243,13 +297,11 @@ def show_trend():
                 s_range = (dates[0], dates[0]) if dates else (None, None)
                 filtered_hist = hist
 
-            # Table
             with st.expander("Data Table"):
                 df = pd.DataFrame(filtered_hist)
                 df['Date'] = df['date'].apply(format_date_ui)
                 st.dataframe(df[['Date', 'value', 'unit', 'min_ref', 'max_ref', 'lab']], use_container_width=True)
 
-            # Chart
             with st.expander("Trend Graph", expanded=True):
                 chart_data = []
                 for h in filtered_hist:
@@ -270,27 +322,24 @@ def show_trend():
                     text = base.mark_text(dy=-15, color='white').encode(y=y_f, text=alt.Text(y_f, format=fmt))
                     st.altair_chart((line + points + text).interactive(), use_container_width=True)
 
-            # Analyze specific period
             if st.button("Analyze Period"):
                  with st.spinner("Thinking..."):
-                     start = str(s_range[0]) if len(dates)>1 else None
-                     end = str(s_range[1]) if len(dates)>1 else None
-                     res = requests.post(f"{API_URL}/analyze_trend", data={
-                         "user_id": st.session_state['user_id'], 
-                         "test_name": test, 
-                         "remarks": st.session_state.get('current_remarks', ''),
-                         "start_date": start, "end_date": end
-                     })
-                     st.session_state['trend_analysis'] = res.json().get('analysis')
+                      start = str(s_range[0]) if len(dates)>1 else None
+                      end = str(s_range[1]) if len(dates)>1 else None
+                      res = safe_api_call("POST", "/analyze_trend", data={
+                          "user_id": st.session_state['user_id'], 
+                          "test_name": test, 
+                          "remarks": st.session_state.get('current_remarks', ''),
+                          "start_date": start, "end_date": end
+                      })
+                      st.session_state['trend_analysis'] = res.json().get('analysis')
             
             with st.expander("🤖 AI Analysis", expanded=True):
                 if st.session_state.get('trend_analysis'):
                     st.markdown(st.session_state['trend_analysis'])
                 else:
                     st.markdown(st.session_state['trend_raw'].get('analysis', 'Click "Analyze Period" to generate detailed insights.'))
-
-        else:
-            st.info("No history.")
+        else: st.info("No history.")
 
 # --- MAIN ROUTER ---
 if st.session_state['user_id'] is None:

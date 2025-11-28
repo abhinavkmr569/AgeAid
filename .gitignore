@@ -1,30 +1,68 @@
-Python
-
-pycache/
-*.pyc
-*.pyo
-*.pyd
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
 .Python
-env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# --- Virtual Environments ---
+# Common names for virtualenvs
 venv/
+env/
+ENV/
+.env/
 .venv/
-pip-log.txt
-pip-delete-this-directory.txt
 
-Environment Variables (CRITICAL)
-
+# --- Environment Variables (CRITICAL SECURITY) ---
 .env
+.env.local
+.env.*.local
+# Exceptions: You might want to commit an example file
+!.env.example
 
-Database
+# --- IDE Settings (VS Code / PyCharm) ---
+.vscode/
+.idea/
+*.swp
+*.swo
 
-*.sqlite3
-*.db
+# --- Docker ---
+# We generally DO NOT ignore Dockerfile or docker-compose.yml
+# But we ignore local overrides if you use them
+docker-compose.override.yml
 
-OS Files
-
+# --- OS Generated Files ---
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-Docker
+# --- Alembic (Database Migrations) ---
+# 1. Ignore cached python files in migrations
+alembic/__pycache__/
 
-.docker/
+# 2. DO NOT ignore the versions folder! 
+# We explicitly "un-ignore" the .gitkeep file we just created
+!alembic/versions/.gitkeep
+
+# 3. Note: We WANT to track *.py files in alembic/versions/ 
+# because they represent your database history.

@@ -1,12 +1,35 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, EmailStr, field_validator
+import re
+from typing import List, Optional, Union
+
+# --- SHARED VALIDATORS ---
+def validate_password_strength(v: str) -> str:
+    """
+    Enforces strong password policy:
+    - At least 8 characters
+    - At least one uppercase letter
+    - At least one lowercase letter
+    - At least one number
+    - At least one special character (!@#$%^&* etc)
+    """
+    if len(v) < 8:
+        raise ValueError('Password must be at least 8 characters long')
+    if not re.search(r'[A-Z]', v):
+        raise ValueError('Password must contain at least one uppercase letter')
+    if not re.search(r'[a-z]', v):
+        raise ValueError('Password must contain at least one lowercase letter')
+    if not re.search(r'[0-9]', v):
+        raise ValueError('Password must contain at least one number')
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', v):
+        raise ValueError('Password must contain at least one special character')
+    return v
 
 class BloodTestItem(BaseModel):
     test_name: str = Field(..., description="Standardized name")
-    value: float = Field(..., description="Numeric value. Use -1 if unreadable.")
+    value: Union[float, str] = Field(..., description="Value") # <--- Allow Strings!
     unit: str = Field("Unknown", description="Unit")
-    min_ref: Optional[float] = Field(None, description="Lower bound.")
-    max_ref: Optional[float] = Field(None, description="Upper bound.")
+    min_ref: Optional[float] = Field(None)
+    max_ref: Optional[float] = Field(None)
     confidence_score: int = Field(..., description="0-100 score")
 
 class ExtractionResult(BaseModel):
@@ -18,21 +41,26 @@ class ExtractionResult(BaseModel):
 
 # --- AUTH ---
 class UserCreate(BaseModel):
-    email: str
-    password: str
-    full_name: str
+    email: EmailStr  # <--- Validates email format automatically
+    password: str = Field(..., min_length=8)
+    full_name: str = Field(..., min_length=2)
     dob: str
     gender: str
-    medical_history: str
+    medical_history: Optional[str] = None
     activity_level: str
     diet_type: str
     alcohol_freq: str
     smoking_status: str
-    sleep_hours: float
+    sleep_hours: float = Field(..., ge=0, le=24) # 0-24 hours validation
     ai_consent: bool
 
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v):
+        return validate_password_strength(v)
+
 class UserLogin(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 class UpdateContext(BaseModel):

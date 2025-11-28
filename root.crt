@@ -1,0 +1,140 @@
+<!doctype html><!--[if lt IE 7]> <html lang="en" class="ie6" > <![endif]--><!--[if IE 7]>    <html lang="en" class="ie7" > <![endif]--><!--[if IE 8]>    <html lang="en" class="ie8" > <![endif]--><!--[if IE 9]>    <html lang="en" class="ie9" > <![endif]--><!--[if (gt IE 9)|!(IE)]><!--><html lang="en" class=""><!--<![endif]--><head><meta charset="utf-8"/><title>CockroachDB Cloud</title><link rel="shortcut icon" href="/assets/favicon.ico"/><script>// Add a script element to the dom
+      function loadScript(script) {
+        document.head.appendChild(script);
+      }</script><script>var host = window.location.host;
+
+      window.loadCookieConsent = !window.Cypress && (host === "management-staging.crdb.io" ||
+        host === "management-preprod.crdb.io" ||
+        host === "localhost:7900" ||
+        host === "localhost:8081");
+
+      // For now, don't load anything on production for testing purposes
+      // When we do load it, we'll need to use the non-test data-domain-script
+      // value.
+      if (window.loadCookieConsent) {
+        var cookieConsentScript = document.createElement('script');
+        cookieConsentScript.src = 'https://cookie-cdn.cookiepro.com/scripttemplates/otSDKStub.js';
+        cookieConsentScript.type = 'text/javascript';
+        cookieConsentScript.charset = 'UTF-8';
+
+        // The cookie consent Test environment ID
+        cookieConsentScript.setAttribute('data-domain-script', "01949510-6e8b-79dd-bc54-196f1b1b7477-test");
+
+        loadScript(cookieConsentScript)
+
+        // OptanonWrapper can be used to conditionally load scripts or execute
+        // javascript depending on the consent categories that were chosen. We
+        // have no need for that currently so we leave it empty.
+        // See https://my.onetrust.com/s/article/UUID-518074a1-a6da-81c3-be52-bae7685d9c94?language=en_US#idm2935
+        window.OptanonWrapper = () => {}
+      }</script><script defer="defer" src="/assets/common.c04ac1bf7dc827f62c9e.js"></script><script defer="defer" src="/assets/application.1db4c0481de8a4f0df6f.js"></script><link rel="preload" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,600&display=swap" as="style" onload="this.rel='stylesheet'"><link href="/assets/application.b0c704f7b2968ce7eb23.css" rel="preload" as="style" onload="this.onload=null;this.rel='stylesheet'"/><script src="https://cdn.jsdelivr.net/npm/@segment/analytics-consent-wrapper-onetrust@latest/dist/umd/analytics-onetrust.umd.js"></script><script>(function(){
+        // Create a queue, but don't obliterate an existing one!
+        var analytics = window.analytics = window.analytics || [];
+
+        // If the real analytics.js is already on the page return.
+        if (analytics.initialize) return;
+
+        // If the snippet was invoked already show an error.
+        if (analytics.invoked) {
+          if (window.console && console.error) {
+            console.error('Segment snippet included twice.');
+          }
+          return;
+        }
+
+        // Invoked flag, to make sure the snippet
+        // is never invoked twice.
+        analytics.invoked = true;
+
+        // A list of the methods in Analytics.js to stub.
+        analytics.methods = [
+          'trackSubmit',
+          'trackClick',
+          'trackLink',
+          'trackForm',
+          'pageview',
+          'identify',
+          'reset',
+          'group',
+          'track',
+          'ready',
+          'alias',
+          'debug',
+          'page',
+          'once',
+          'off',
+          'on',
+          'addSourceMiddleware',
+          'addIntegrationMiddleware',
+          'setAnonymousId',
+          'addDestinationMiddleware',
+        ];
+
+        // Define a factory to create stubs. These are placeholders
+        // for methods in Analytics.js so that you never have to wait
+        // for it to load to actually record data. The `method` is
+        // stored as the first argument, so we can replay the data.
+        analytics.factory = function(method){
+          return function(){
+            var args = Array.prototype.slice.call(arguments);
+            args.unshift(method);
+            analytics.push(args);
+            return analytics;
+          };
+        };
+
+        // For each of our methods, generate a queueing stub.
+        for (var i = 0; i < analytics.methods.length; i++) {
+          var key = analytics.methods[i];
+          analytics[key] = analytics.factory(key);
+        }
+
+        // Define a method to load Analytics.js from our CDN,
+        // and that will be sure to only ever load it once.
+        analytics.load = function(options){
+          // Create an async script element based on your key.
+          var script = document.createElement('script');
+          script.type = 'text/javascript';
+          script.async = true;
+          // This is the only thing modified from the provided snippet:
+          // https://segment.com/docs/connections/sources/catalog/libraries/website/javascript/quickstart/#step-1-copy-the-snippet
+          var host = window.location.host;
+          if (host.split(":")[0] !== "localhost") {
+               var consoleHost = host;
+              // The segment script is only available on CC console domain.
+              // So if host is SU, then update the host to corresponding console host.
+              if(host === "superuser-management-staging.crdb.io") {
+                consoleHost = "management-staging.crdb.io"
+              } else if (host === "su.cockroachlabs.cloud") {
+                consoleHost = "cockroachlabs.cloud"
+              }
+
+            script.src = `https://marketing.${consoleHost}/segment/load`;
+          } else {
+            
+            script.src = 'http://localhost:7909/segment/load';
+            
+          }
+
+          loadScript(script)
+          analytics._loadOptions = options;
+        };
+
+        // Add a version to keep track of what's in the wild.
+        analytics.SNIPPET_VERSION = '4.15.3';
+
+        // Load Segment.
+        if (!window.Cypress) {
+          if (window.loadCookieConsent) {
+            if (window['withOneTrust']) {
+              withOneTrust(analytics).load()
+            } else {
+              console.error("expecting withOneTrust to be defined, but it wasn't, falling back to normal analytics")
+              analytics.load()
+            }
+          }
+          else {
+            analytics.load()
+          }
+        }
+      })();</script></head><body><div id="app"></div><iframe id="instrumentation-tunnel" style="display: none;" width="0" height="0" tabindex="-1" aria-hidden="true" sandbox="allow-scripts allow-same-origin" src="https://www.cockroachlabs.com/instrumentation/tunnel.html"/></body></html>
