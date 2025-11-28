@@ -10,6 +10,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 3. Copy All Code (main.py, app.py, extractor.py, etc.)
 COPY . .
 
+# --- NEW LINE: Bake the certificate into the container ---
+# This creates the folder and copies the file in one step
+COPY root.crt /root/.postgresql/root.crt
+
 # 4. Create a startup script to run both servers
 # We create this file inside the container to avoid Windows line-ending issues
 RUN echo '#!/bin/bash\n\
