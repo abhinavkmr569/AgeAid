@@ -26,7 +26,7 @@ STANDARD_TESTS = {
 
     # --- THYROID ---
     "Thyroid Stimulating Hormone": ["tsh", "thyroid stimulating hormone", "thyrotropin", "t.s.h", "tsh ultrasensitive", "tsh-ultrasensitive", "tsh 3rd gen"],
-    "Total T3": ["total t3", "triiodothyronine", "t3 total", "total triiodothyronine", "total triiodothyronine (t3)"],
+    "Total T3": ["total t3", "triiodothyronine", "t3 total", "total triiodothyronine", "total triiodothyronine (t3)"], 
     "Total T4": ["total t4", "thyroxine", "t4 total", "total thyroxine", "total thyroxine (t4)"],
     "Free T3": ["ft3", "free triiodothyronine", "free t3"],
     "Free T4": ["ft4", "free thyroxine", "free t4"],
