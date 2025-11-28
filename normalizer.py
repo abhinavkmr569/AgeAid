@@ -11,8 +11,8 @@ STANDARD_TESTS = {
 
     # --- LIPIDS ---
     "Total Cholesterol": ["total cholesterol", "cholesterol total", "s. cholesterol", "serum cholesterol"],
-    "HDL Cholesterol": ["hdl", "high density lipoprotein", "hdl cholesterol", "good cholesterol", "hdl cholesterol direct", "hdlc"],
-    "LDL Cholesterol": ["ldl", "low density lipoprotein", "ldl cholesterol", "bad cholesterol", "ldl cholesterol direct", "ldl direct", "ldlc"],
+    "HDL Cholesterol": ["hdl", "high density lipoprotein", "hdl cholesterol", "good cholesterol", "hdl cholesterol direct", "hdlc", 'hdl cholesterol, serum'],
+    "LDL Cholesterol": ["ldl", "low density lipoprotein", "ldl cholesterol", "bad cholesterol", "ldl cholesterol direct", "ldl direct", "ldlc", 'ldl cholesterol, serum', 'low density lipoprotein-cholesterol, serum', 'low density lipoprotein-cholesterol', 'low density lipoprotein-cholesterol (ldl)'],
     "VLDL Cholesterol": ["vldl", "very low density lipoprotein", "vldl cholesterol", "vldlc"],
     "Non-HDL Cholesterol": ["non-hdl cholesterol", "non hdl", "cholesterol non hdl"], # <--- NEW
     "Triglycerides": ["triglycerides", "tgl", "s. triglycerides", "serum triglycerides"],
