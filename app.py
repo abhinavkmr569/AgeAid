@@ -3,16 +3,43 @@ import requests
 import pandas as pd
 import altair as alt
 import time
+import os
+import platform # <--- NEW IMPORT
 from datetime import datetime, date
 from requests.exceptions import ConnectionError
 from utils import format_date_ui
+from dotenv import load_dotenv
+
+load_dotenv()
 
 try: from clusters import TEST_CLUSTERS
 except: TEST_CLUSTERS = {}
 
 # 1. CONFIGURATION (Must be first)
 st.set_page_config(page_title="Health AI", layout="wide", initial_sidebar_state="expanded")
+
+# --- SMART URL CONFIGURATION ---
+# Internal URL: Used by Streamlit server to talk to FastAPI (Always localhost inside Docker)
 API_URL = "http://127.0.0.1:8080"
+
+# External URL: Used by the User's Browser for redirects (Google Login)
+# LOGIC:
+# 1. If PUBLIC_API_URL is set in .env, use it.
+# 2. Else if CPU is ARM (Raspberry Pi), use Production Domain.
+# 3. Else (Windows/Intel), use Localhost.
+
+env_url = os.environ.get("PUBLIC_API_URL")
+
+if env_url:
+    PUBLIC_API_URL = env_url
+elif platform.machine() == 'aarch64':
+    # Raspberry Pi (ARM64) -> Production
+    PUBLIC_API_URL = "https://api.example.com"
+else:
+    # Windows/Mac (x86_64) -> Development
+    PUBLIC_API_URL = "http://localhost:8080"
+
+# -------------------------------
 
 # 2. SESSION STATE INITIALIZATION
 if 'user_id' not in st.session_state: st.session_state['user_id'] = None
@@ -24,6 +51,28 @@ if 'trend_raw' not in st.session_state: st.session_state['trend_raw'] = {}
 if 'health_logs' not in st.session_state: st.session_state['health_logs'] = []
 if 'trend_analysis' not in st.session_state: st.session_state['trend_analysis'] = None
 if 'last_t' not in st.session_state: st.session_state['last_t'] = None
+
+# --- AUTH SESSION HANDLER ---
+# Check for Google Login Callback via URL Parameters immediately
+try:
+    query_params = st.query_params
+    # FIX: Add check 'and st.session_state['user_id'] is None' to prevent infinite rerun loops
+    if query_params.get("login_success") == "true" and st.session_state['user_id'] is None:
+        st.session_state['user_id'] = query_params.get("uid")
+        st.session_state['user_name'] = query_params.get("uname")
+        st.session_state['page'] = 'App'
+        
+        # Clear params to clean up URL
+        st.query_params.clear()
+        
+        # Show success and wait briefly to break race conditions
+        st.success(f"Welcome back, {st.session_state['user_name']}!")
+        time.sleep(1)
+        st.rerun()
+        
+    elif query_params.get("login_error"):
+        st.error(f"Google Login Failed: {query_params.get('login_error')}")
+except: pass
 
 # --- HELPERS ---
 
@@ -183,6 +232,25 @@ def render_account_settings():
 def login():
     st.button("← Back to Home", on_click=lambda: st.session_state.update({'page': 'Landing'}))
     st.header("🔑 Login")
+    
+    # --- GOOGLE LOGIN BUTTON ---
+    # FIXED: Use PUBLIC_API_URL so the browser goes to the correct public address
+    st.markdown(f'''
+    <a href="{PUBLIC_API_URL}/auth/login" target="_self" style="text-decoration: none;">
+        <div style="
+            width: 100%; background-color: #fff; border: 1px solid #ccc;
+            padding: 10px; border-radius: 5px; text-align: center;
+            display: flex; align-items: center; justify_content: center; gap: 10px;
+            cursor: pointer; font-family: sans-serif; color: #333">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18">
+            <span style="font-weight: 500;">Sign in with Google</span>
+        </div>
+    </a>
+    <br> ''', unsafe_allow_html=True)
+    
+    st.markdown("<div style='text-align: center; color: #666;'>— OR —</div>", unsafe_allow_html=True)
+    
+    # --- EMAIL LOGIN FORM ---
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
     if st.button("Log In", type="primary"):
@@ -363,10 +431,8 @@ def render_history():
             if not df.empty:
                 df['Date'] = df['Date'].apply(format_date_ui)
                 
-                # Define columns to display (hiding AI internal metrics)
+                # --- CLEAN VIEW: Only show relevant medical columns ---
                 display_cols = ["Date", "Test Name", "Value", "Unit", "Reference", "Lab"]
-                
-                # Filter to ensure we only try to display columns that exist
                 cols_to_show = [c for c in display_cols if c in df.columns]
 
                 st.dataframe(df[cols_to_show], use_container_width=True, hide_index=True)

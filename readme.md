@@ -1,43 +1,48 @@
-# Health Trend Tracker (SaaS):
+# AgeAid - Health Trend Tracker (SaaS)
 
-A personal health dashboard that uses AI to extract data from PDF/Image blood reports, standardizes test results, and visualizes long-term health trends with a "Universal Health Score".<-- Replace with a screenshot of your app🚀 FeaturesAI-Powered Extraction: Uses Google Gemini 2.5 Flash to read data from any blood report format (PDF, JPG, PNG).Universal Normalization: Automatically maps different test names (e.g., "Fasting Sugar" vs. "Fasting Glucose") to a single standard ID using fuzzy logic.Health Score (0-100): Converts raw values into a percentage score based on the specific reference range of that report, solving the problem of different labs using different scales.Holistic Analysis: Uses Gemini 2.5 Pro to analyze trends across entire body systems (e.g., Kidney Function) while considering your lifestyle (Diet, Sleep, Activity).Timeline Visualization: Plots trends over time with dynamic charts that handle date formats intelligently.Privacy-First: Self-hostable on a Raspberry Pi or scalable on Google Cloud Run.🏗️ Tech StackComponentTechnologyPurposeFrontendStreamlitThe user interface (Dashboard, Charts, Uploads).BackendFastAPIHigh-performance API for handling logic and database calls.AI EngineGoogle Gemini 2.5Flash for fast extraction, Pro for deep reasoning.DatabaseCockroachDB ServerlessPostgreSQL-compatible database with a generous free tier.DeploymentDockerContainerizes the entire stack for easy deployment anywhere.📂 File Structurehealth_backend/
-├── app.py               # Frontend: Streamlit UI Logic
-├── main.py              # Backend: FastAPI Server Logic
-├── extractor.py         # AI: Gemini Prompt Engineering & Logic
-├── database.py          # DB: Connection handling (CockroachDB)
-├── models.py            # DB: SQLAlchemy Table Definitions
-├── schemas.py           # API: Pydantic Data Validation Models
-├── clusters.py          # Logic: Grouping tests (e.g., "Kidney Function")
-├── normalizer.py        # Logic: Fuzzy matching for test names
-├── utils.py             # Helper: Date parsing & formatting
-├── reset_db.py          # Utility: Wipes database for schema updates
-├── requirements.txt     # Dependencies list
-├── Dockerfile           # Deployment configuration
-└── .env                 # Secrets (API Keys & DB URL)
-⚡ Quick Start (Local Deployment)1. PrerequisitesDocker Desktop installed and running.A Google Gemini API Key (Get it from Google AI Studio).A CockroachDB Serverless Cluster (Get it from CockroachDB Cloud).2. SetupClone the repository:git clone [https://github.com/YOUR_USERNAME/health-trend-tracker.git](https://github.com/YOUR_USERNAME/health-trend-tracker.git)
-cd health-trend-tracker
-Create the .env file:Create a file named .env in the root folder and add your keys:GEMINI_API_KEY=your_google_api_key_here
-DATABASE_URL=postgresql://user:password@host:26257/healthdb?sslmode=verify-full
-Download SSL Certificate (Windows Only):Open PowerShell and run the command provided by CockroachDB to download the root.crt certificate to your AppData folder.3. Run with DockerThis single command builds the container and starts both the Backend and Frontend.# Build the image
-docker build -t health-app .
+A privacy-first AI health dashboard that extracts data from blood reports, normalizes medical terms, and visualizes long-term trends. Self-hosted on Raspberry Pi with Google Gemini AI.ShutterstockExplore🚀 FeaturesAI Extraction: Uses Google Gemini 2.5 Flash to read PDF/Images.Trend Analysis: Visualizes cholesterol, sugar, and thyroid levels over time.Smart Auth: Sign in with Google (OAuth2) or Email/Password.Privacy First: "Right to Erasure" (Delete Account) built-in.Cost Tracking: Monitors AI token usage and costs per report.Production Ready: Dockerized with automated migrations (Alembic).🛠️ Tech StackFrontend: Streamlit (Python)Backend: FastAPI (Python)Database: CockroachDB Serverless (PostgreSQL compatible)AI Engine: Google Gemini 2.5 Flash & ProInfrastructure: Docker, Cloudflare Tunnel (for public access)📂 Project Structurehealth_backend/
+├── alembic/             # Database migration scripts
+├── app.py               # Streamlit Frontend
+├── main.py              # FastAPI Backend
+├── database.py          # DB Connection (SSL aware)
+├── extractor.py         # Gemini AI Logic
+├── models.py            # SQLAlchemy Tables
+├── schemas.py           # Pydantic Models
+├── deploy.sh            # One-click deployment script
+├── get_cert.py          # SSL Certificate downloader
+├── root.crt             # CockroachDB CA Certificate (Required)
+└── .env                 # Secrets (GitIgnored)
+⚡ Quick Start (Local Development)Prerequisites: Python 3.11+, Docker Desktop.Environment Variables (.env):GEMINI_API_KEY=your_key
+DATABASE_URL=postgresql://user:pass@host:port/db?sslmode=verify-full
 
-# Run the container (Windows PowerShell)
-docker run -d --name health-server -p 8080:8080 -p 8501:8501 --env-file .env -v $env:APPDATA\postgresql:/root/.postgresql health-app
+# Google Auth
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_client_secret
+SECRET_KEY=random_string
 
-# Run the container (Mac/Linux)
-# Note: You may need to download the cert to the project folder first
-docker run -d --name health-server -p 8080:8080 -p 8501:8501 --env-file .env health-app
-4. Access the AppFrontend: Open http://localhost:8501 in your browser.Backend Docs: http://localhost:8080/docs🌍 Deployment (Google Cloud Run)This project is designed to run 100% Free on Google Cloud Run's free tier.Install Google Cloud SDK and login:gcloud auth login
-gcloud config set project YOUR_PROJECT_ID
-Deploy Command:gcloud run deploy health-app \
-  --source . \
-  --platform managed \
-  --region asia-south1 \
-  --allow-unauthenticated \
-  --port 8501 \
-  --set-env-vars "GEMINI_API_KEY=your_key,DATABASE_URL=your_db_url"
-Done! You will get a public URL (e.g., https://health-app.a.run.app) to share with users.🛠️ Maintenance & UpdatesUpdating the Database SchemaIf you add new columns to models.py (e.g., new lifestyle factors), you must update the database structure.Option A: Hard Reset (Data Loss)For early development only. Wipes all users and reports.docker exec health-server python reset_db.py
-docker restart health-server
-Option B: Migration (Production Safe)Use Alembic (configured in the repo) to apply changes safely.alembic revision --autogenerate -m "Added new column"
+# Local Dev Config
+ENV_TYPE=development
+PUBLIC_API_URL=http://localhost:8080
+SSL Certificate (Windows):Run this in PowerShell to place the cert where local Python finds it:New-Item -ItemType Directory -Force -Path "$env:APPDATA\postgresql"
+Invoke-WebRequest -Uri "[https://letsencrypt.org/certs/isrgrootx1.pem](https://letsencrypt.org/certs/isrgrootx1.pem)" -OutFile "$env:APPDATA\postgresql\root.crt"
+Run with Docker:docker build -t health-app .
+docker run -d -p 8080:8080 -p 8501:8501 --env-file .env health-app
+Access UI at http://localhost:8501.🍓 Raspberry Pi Deployment (Production)Clone & Configure:git clone <repo_url>
+cd health_backend
+nano .env
+# Set ENV_TYPE=production
+# Set PUBLIC_API_URL=[https://your-domain.com](https://your-domain.com)
+Download SSL Cert (Critical):Docker needs this file in the build context.python get_cert.py
+# OR
+curl -o root.crt [https://letsencrypt.org/certs/isrgrootx1.pem](https://letsencrypt.org/certs/isrgrootx1.pem)
+Deploy:Use the automated script to pull, rebuild, and restart:chmod +x deploy.sh
+./deploy.sh
+🔄 Database Migrations (Alembic)The deploy.sh script runs migrations automatically on startup.To create a new migration after modifying models.py:# 1. Enter container
+docker exec -it health-server /bin/bash
+
+# 2. Generate script
+alembic revision --autogenerate -m "Description of change"
+
+# 3. Apply (Optional, usually handled by upgrade head)
 alembic upgrade head
-📝 LicenseMIT License
+Note: Commit the generated file in alembic/versions to GitHub.🛡️ Traffic Flow (Cloudflare Tunnel)If using Cloudflare Tunnel, ensure Public Hostnames are set to route Auth traffic correctly:your-domain.com/auth* -> http://localhost:8080 (FastAPI)your-domain.com/ -> http://localhost:8501 (Streamlit)

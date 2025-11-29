@@ -1,9 +1,9 @@
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Form, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, and_
 from database import engine, Base, get_db
 from models import PatientReport, TestResult, User
-# Added UserProfileUpdate to imports
 from schemas import UserCreate, UserLogin, UpdateContext, UserProfileUpdate
 from extractor import smart_extract, analyze_trend_with_gemini
 from passlib.context import CryptContext
@@ -12,10 +12,16 @@ from utils import standardize_date
 from clusters import get_related_tests
 from collections import defaultdict
 import uvicorn
+import traceback
 import logging
 import json
+import os
 from datetime import datetime
-import traceback
+
+# --- CRITICAL IMPORTS FOR GOOGLE AUTH ---
+from starlette.middleware.sessions import SessionMiddleware
+from authlib.integrations.starlette_client import OAuth
+from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,6 +29,74 @@ logger = logging.getLogger(__name__)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # Base.metadata.create_all(bind=engine) # Alembic handles this now
 app = FastAPI(title="Health AI")
+
+# --- AUTH MIDDLEWARE (REQUIRED FOR GOOGLE) ---
+app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SECRET_KEY", "unsafe-secret"))
+
+# --- GOOGLE OAUTH SETUP ---
+oauth = OAuth()
+oauth.register(
+    name='google',
+    client_id=os.environ.get("GOOGLE_CLIENT_ID"),
+    client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={'scope': 'openid email profile'}
+)
+
+# --- GOOGLE AUTH ENDPOINTS ---
+@app.get("/auth/login")
+async def login_via_google(request: Request):
+    # This MUST match the URI you put in Google Console
+    env_type = os.environ.get("ENV_TYPE", "production")
+    if env_type == "development":
+        # Force Localhost for Laptop Dev
+        redirect_uri = "http://localhost:8080/auth/callback"
+    else:
+        # Production (Raspberry Pi / Cloud)
+        # This matches the authorized URI in Google Console
+        redirect_uri = "https://api.example.com/auth/callback"
+    
+    print(f"🔄 Initiating Google Auth. Redirecting to: {redirect_uri}") # Debug log
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+@app.get("/auth/callback")
+async def auth_via_google(request: Request, db: Session = Depends(get_db)):
+    try:
+        token = await oauth.google.authorize_access_token(request)
+        user_info = token.get('userinfo')
+        if not user_info: raise HTTPException(400, "Google Auth Failed")
+            
+        email = user_info.get('email')
+        name = user_info.get('name')
+        
+        # 1. Check if user exists
+        user = db.query(User).filter(User.email == email).first()
+        
+        if not user:
+            # 2. If not, SIGN THEM UP automatically
+            empty_log = json.dumps([])
+            user = User(
+                email=email,
+                hashed_password=pwd_context.hash("GOOGLE_OAUTH_" + os.urandom(10).hex()), # Dummy password
+                full_name=name,
+                dob="2000-01-01", gender="Other", activity_level="Moderate",
+                diet_type="Omnivore", alcohol_freq="None", smoking_status="Never",
+                sleep_hours=7.0, ai_analysis_consent=True, current_context=empty_log
+            )
+            db.add(user); db.commit(); db.refresh(user)
+            
+        # 3. Redirect to Frontend with Login Session
+        if os.environ.get("ENV_TYPE") == "development":
+             frontend_url = "http://localhost:8501"
+        else:
+             frontend_url = "https://api.example.com"
+             
+        return RedirectResponse(url=f"{frontend_url}/?login_success=true&uid={user.id}&uname={user.full_name}")
+        
+    except Exception as e:
+        frontend_url = os.environ.get("STREAMLIT_PUBLIC_URL", "http://localhost:8501")
+        return RedirectResponse(url=f"{frontend_url}/?login_error={str(e)}")
+
 
 # --- AUTH ---
 @app.post("/signup")
