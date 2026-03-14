@@ -1,19 +1,14 @@
-version: "3.8"
-
 services:
-
   db:
     image: postgres:15
     container_name: health-db
     restart: always
     environment:
       POSTGRES_USER: healthuser
-      POSTGRES_PASSWORD: healthpassword
+      POSTGRES_PASSWORD: ***REMOVED-DB-PASSWORD***
       POSTGRES_DB: healthdb
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432" # only exposed locally on Pi, not to internet
 
   app:
     build: .
@@ -24,7 +19,7 @@ services:
     env_file:
       - .env
     ports:
-      - "8080:8080"
+      - "8502:8502"
       - "8501:8501"
 
 volumes:

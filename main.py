@@ -94,7 +94,8 @@ async def auth_via_google(request: Request, db: Session = Depends(get_db)):
             
         # 3. Redirect to Frontend
         # We use the same env variable to know where to send the user back
-        frontend_url = os.environ.get("PUBLIC_API_URL", "http://localhost:8080")
+        
+        frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:8501")
         if frontend_url.endswith("/"): 
             frontend_url = frontend_url[:-1]
              
@@ -102,7 +103,7 @@ async def auth_via_google(request: Request, db: Session = Depends(get_db)):
         
     except Exception as e:
         print(f"❌ Auth Error: {e}")
-        frontend_url = os.environ.get("PUBLIC_API_URL", "http://localhost:8080")
+        frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:8501")
         return RedirectResponse(url=f"{frontend_url}/?login_error={str(e)}")
 
 

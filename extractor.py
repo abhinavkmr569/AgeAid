@@ -50,10 +50,10 @@ def call_gemini_model(model_name: str, image_bytes: bytes, mime_type: str):
 
 def smart_extract(image_bytes: bytes, mime_type: str):
     print(f"⚡ Attempting Gemini 2.5 Flash...")
-    model_used = "gemini-2.5-flash"
+    model_used = "gemini-2.5-flash-lite"
     tokens = 0 # <--- NEW: Default
     try:
-        response = call_gemini_model("gemini-2.5-flash", image_bytes, mime_type)
+        response = call_gemini_model("gemini-2.5-flash-lite", image_bytes, mime_type)
         data = response.parsed
 
         if response.usage_metadata:
@@ -65,8 +65,8 @@ def smart_extract(image_bytes: bytes, mime_type: str):
         if avg < 90 or not data.results:
             print("⚠️ Low Confidence. Escalating to Gemini 2.5 Pro...")
             
-            model_used = "gemini-2.5-pro"
-            response = call_gemini_model("gemini-2.5-pro", image_bytes, mime_type)
+            model_used = "gemini-2.5-pro-lite"
+            response = call_gemini_model("gemini-2.5-pro-lite", image_bytes, mime_type)
             data = response.parsed
 
             # Update Tokens (We take the Pro usage cost)
@@ -119,7 +119,7 @@ def analyze_trend_with_gemini(user_profile, primary_target, history_by_date, cur
     """
     
     try:
-        response = client.models.generate_content(model="gemini-2.5-pro", contents=prompt)
+        response = client.models.generate_content(model="gemini-2.5-pro-lite", contents=prompt)
         return response.text
     except:
-        return client.models.generate_content(model="gemini-2.5-flash", contents=prompt).text
+        return client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt).text

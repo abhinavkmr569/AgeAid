@@ -19,9 +19,12 @@ st.set_page_config(page_title="Health AI", layout="wide", initial_sidebar_state=
 
 # --- SMART URL CONFIGURATION ---
 # Internal URL: Server-to-Server (Streamlit -> FastAPI inside Docker)
-API_URL = "http://127.0.0.1:8080"
+API_URL = "http://127.0.0.1:8502"
 
 # External URL: Browser Redirects (Google Login)
+
+
+
 # LOGIC: Check .env first, fallback to localhost.
 PUBLIC_API_URL = os.environ.get("PUBLIC_API_URL", "http://localhost:8080")
 

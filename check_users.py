@@ -7,8 +7,8 @@ load_dotenv()
 
 # 1. Parse URL
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
-if DATABASE_URL.startswith("postgresql://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "cockroachdb://", 1)
+"""if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "cockroachdb://", 1)"""
 
 # 2. Windows SSL Fix (Same as database.py)
 if sys.platform == "win32" and "sslrootcert" not in DATABASE_URL:
