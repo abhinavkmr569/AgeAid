@@ -4,7 +4,6 @@ import pandas as pd
 import altair as alt
 import time
 import os
-import platform # <--- NEW IMPORT
 from datetime import datetime, date
 from requests.exceptions import ConnectionError
 from utils import format_date_ui
@@ -19,32 +18,23 @@ except: TEST_CLUSTERS = {}
 st.set_page_config(page_title="Health AI", layout="wide", initial_sidebar_state="expanded")
 
 # --- SMART URL CONFIGURATION ---
-# Internal URL: Used by Streamlit server to talk to FastAPI (Always localhost inside Docker)
+# Internal URL: Server-to-Server (Streamlit -> FastAPI inside Docker)
 API_URL = "http://127.0.0.1:8080"
 
-# External URL: Used by the User's Browser for redirects (Google Login)
-# LOGIC:
-# 1. If PUBLIC_API_URL is set in .env, use it.
-# 2. Else if CPU is ARM (Raspberry Pi), use Production Domain.
-# 3. Else (Windows/Intel), use Localhost.
+# External URL: Browser Redirects (Google Login)
+# LOGIC: Check .env first, fallback to localhost.
+PUBLIC_API_URL = os.environ.get("PUBLIC_API_URL", "http://localhost:8080")
 
-env_url = os.environ.get("PUBLIC_API_URL")
-
-if env_url:
-    PUBLIC_API_URL = env_url
-elif platform.machine() == 'aarch64':
-    # Raspberry Pi (ARM64) -> Production
-    PUBLIC_API_URL = "https://api.example.com"
-else:
-    # Windows/Mac (x86_64) -> Development
-    PUBLIC_API_URL = "http://localhost:8080"
+# Remove trailing slash if present to avoid double // issues
+if PUBLIC_API_URL.endswith("/"):
+    PUBLIC_API_URL = PUBLIC_API_URL[:-1]
 
 # -------------------------------
 
 # 2. SESSION STATE INITIALIZATION
 if 'user_id' not in st.session_state: st.session_state['user_id'] = None
 if 'user_name' not in st.session_state: st.session_state['user_name'] = None
-if 'page' not in st.session_state: st.session_state['page'] = 'Landing' # Default to Landing
+if 'page' not in st.session_state: st.session_state['page'] = 'Landing' 
 if 'selected_test' not in st.session_state: st.session_state['selected_test'] = None
 if 'current_remarks' not in st.session_state: st.session_state['current_remarks'] = ""
 if 'trend_raw' not in st.session_state: st.session_state['trend_raw'] = {}
@@ -53,7 +43,6 @@ if 'trend_analysis' not in st.session_state: st.session_state['trend_analysis'] 
 if 'last_t' not in st.session_state: st.session_state['last_t'] = None
 
 # --- AUTH SESSION HANDLER ---
-# Check for Google Login Callback via URL Parameters immediately
 try:
     query_params = st.query_params
     # FIX: Add check 'and st.session_state['user_id'] is None' to prevent infinite rerun loops
@@ -65,7 +54,6 @@ try:
         # Clear params to clean up URL
         st.query_params.clear()
         
-        # Show success and wait briefly to break race conditions
         st.success(f"Welcome back, {st.session_state['user_name']}!")
         time.sleep(1)
         st.rerun()
@@ -77,42 +65,22 @@ except: pass
 # --- HELPERS ---
 
 def safe_api_call(method, endpoint, **kwargs):
-    """
-    Robust API caller that handles startup delays and transient errors.
-    """
+    """Robust API caller"""
     url = f"{API_URL}{endpoint}"
-    # Try 3 times
     for attempt in range(3):
         try:
-            if method == "POST":
-                res = requests.post(url, **kwargs)
-            elif method == "PUT":
-                res = requests.put(url, **kwargs)
-            elif method == "DELETE":
-                res = requests.delete(url, **kwargs)
-            else:
-                res = requests.get(url, **kwargs)
+            if method == "POST": res = requests.post(url, **kwargs)
+            elif method == "PUT": res = requests.put(url, **kwargs)
+            elif method == "DELETE": res = requests.delete(url, **kwargs)
+            else: res = requests.get(url, **kwargs)
             
-            # If we get a 500-504 error, wait and retry
             if res.status_code in [500, 502, 503, 504]: 
-                time.sleep(1)
-                continue
-                
+                time.sleep(1); continue
             return res
-            
         except ConnectionError:
-            time.sleep(1)
-            continue
+            time.sleep(1); continue
             
-    # If all attempts fail, return an empty response to avoid crashing
     return requests.Response()
-
-def calculate_cost(model_name, tokens):
-    if not tokens or not model_name: return 0.0
-    # Approx Pricing ($ per 1M tokens)
-    rates = {"gemini-2.5-flash": 0.10, "gemini-2.5-pro": 2.50}
-    rate = rates.get(model_name, 0.10)
-    return (tokens / 1_000_000) * rate
 
 def get_health_status(value, min_ref, max_ref):
     if value is None or value == -1: return (None, "#808080", "Info")
@@ -168,18 +136,12 @@ def render_landing_page():
 def render_account_settings():
     st.header("👤 Account Settings")
     st.info("Manage your profile preferences and data.")
-    
-    # 1. Fetch current profile
     try:
         res = safe_api_call("GET", f"/user/{st.session_state['user_id']}/profile")
-        if res.status_code == 200:
-            profile = res.json().get('profile', {})
-        else:
-            st.error("Failed to load profile")
-            return
+        if res.status_code == 200: profile = res.json().get('profile', {})
+        else: st.error("Failed to load profile"); return
     except: return
 
-    # 2. Edit Form
     with st.form("edit_profile"):
         st.subheader("Lifestyle & Preferences")
         c1, c2 = st.columns(2)
@@ -187,11 +149,9 @@ def render_account_settings():
         curr_d = profile.get('diet_type', 'Omnivore')
         d = c1.selectbox("Diet Type", d_opts, index=d_opts.index(curr_d) if curr_d in d_opts else 0)
         
-        # Activity Level with Help Tooltip
         act_help = "Sedentary: Little/no exercise\nModerate: Exercise 1-3 times/week\nActive: Daily exercise or physical job"
         a = c2.select_slider("Activity Level", options=["Sedentary", "Moderate", "Active"], 
-                             value=profile.get('activity_level', 'Moderate'),
-                             help=act_help)
+                             value=profile.get('activity_level', 'Moderate'), help=act_help)
         
         c3, c4 = st.columns(2)
         s_opts = ["Never", "Former", "Current"]
@@ -206,27 +166,18 @@ def render_account_settings():
         med = st.text_area("Medical History", value=profile.get('medical_history', ''))
         
         if st.form_submit_button("💾 Save Changes"):
-            payload = {
-                "diet_type": d, "activity_level": a, "smoking_status": smoke, 
-                "alcohol_freq": alcohol, "sleep_hours": s, "medical_history": med
-            }
+            payload = {"diet_type": d, "activity_level": a, "smoking_status": smoke, "alcohol_freq": alcohol, "sleep_hours": s, "medical_history": med}
             res = safe_api_call("PUT", f"/user/{st.session_state['user_id']}/update_profile", json=payload)
             if res.status_code == 200: st.success("Profile Updated!"); time.sleep(1); st.rerun()
             else: st.error("Failed to update.")
 
     st.divider()
-    
-    # 3. Danger Zone
     st.subheader("🚨 Danger Zone")
     if st.button("🗑️ Delete My Account Permanently", type="primary"):
         st.warning("Are you sure? This cannot be undone.")
         if st.button("Yes, I am sure. Delete everything."):
             res = safe_api_call("DELETE", f"/user/{st.session_state['user_id']}/delete")
-            if res.status_code == 200:
-                st.session_state.clear()
-                st.success("Account Deleted.")
-                time.sleep(2)
-                st.rerun()
+            if res.status_code == 200: st.session_state.clear(); st.success("Account Deleted."); time.sleep(2); st.rerun()
             else: st.error("Failed to delete account.")
 
 def login():
@@ -234,7 +185,7 @@ def login():
     st.header("🔑 Login")
     
     # --- GOOGLE LOGIN BUTTON ---
-    # FIXED: Use PUBLIC_API_URL so the browser goes to the correct public address
+    # FIXED: Uses clean PUBLIC_API_URL from .env
     st.markdown(f'''
     <a href="{PUBLIC_API_URL}/auth/login" target="_self" style="text-decoration: none;">
         <div style="
@@ -250,7 +201,6 @@ def login():
     
     st.markdown("<div style='text-align: center; color: #666;'>— OR —</div>", unsafe_allow_html=True)
     
-    # --- EMAIL LOGIN FORM ---
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
     if st.button("Log In", type="primary"):
@@ -260,13 +210,10 @@ def login():
                 d = res.json()
                 st.session_state.update({'user_id': d['user_id'], 'user_name': d['name'], 'page': 'App'})
                 st.rerun()
-            elif res.status_code == 422:
-                st.error("Invalid data format")
+            elif res.status_code == 422: st.error("Invalid data format")
             else: st.error("Invalid Credentials")
-        except ConnectionError:
-            st.error("Backend is still starting up. Please wait 5 seconds and try again.")
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
+        except ConnectionError: st.error("Backend is still starting up. Please wait 5 seconds and try again.")
+        except Exception as e: st.error(f"An error occurred: {e}")
     
     st.markdown("---")
     st.caption("New here?")
@@ -285,11 +232,8 @@ def signup():
         st.divider()
         st.subheader("Lifestyle")
         d = st.selectbox("Diet", ["Omnivore", "Veg", "Vegan", "Keto"])
-        
-        # Activity Level with Help Tooltip
         act_help = "Sedentary: Little/no exercise\nModerate: Exercise 1-3 times/week\nActive: Daily exercise or physical job"
         a = st.select_slider("Activity", options=["Sedentary", "Moderate", "Active"], help=act_help)
-        
         l1, l2 = st.columns(2)
         smoke = l1.radio("Smoking", ["Never", "Former", "Current"], horizontal=True)
         alcohol = l2.selectbox("Alcohol", ["None", "Social", "Moderate", "Frequent"])
@@ -316,16 +260,12 @@ def signup():
 # --- DASHBOARD ---
 def render_home():
     st.title(f"👋 Hi, {st.session_state.get('user_name')}")
-    
-    # Fetch Logs
     if not st.session_state['health_logs']:
         try:
             r = safe_api_call("GET", f"/user/{st.session_state['user_id']}/profile")
-            if r.status_code == 200:
-                st.session_state['health_logs'] = r.json().get('logs', [])
+            if r.status_code == 200: st.session_state['health_logs'] = r.json().get('logs', [])
         except: pass
 
-    # Remarks UI
     with st.container():
         st.subheader("📝 Health Journal")
         if st.session_state['health_logs']:
@@ -344,31 +284,23 @@ def render_home():
 
     st.divider()
 
-    # Upload
     with st.expander("📤 Upload Reports", expanded=True):
             ups = st.file_uploader("Files", type=["pdf","jpg","png"], accept_multiple_files=True)
-            
             if ups and st.button(f"Process {len(ups)} Files"):
                 status_text = st.empty()
                 progress_bar = st.progress(0)
                 total_files = len(ups)
-                
                 for i, f in enumerate(ups):
                     status_text.markdown(f"**⏳ Processing ({i+1}/{total_files}) reports:** `{f.name}`...")
                     try:
-                        safe_api_call("POST", "/analyze", 
-                            files={"file": (f.name, f.getvalue(), f.type)}, 
-                            data={"user_id": st.session_state['user_id']}
-                        )
-                    except Exception as e:
-                        st.error(f"Failed to process {f.name}")
+                        safe_api_call("POST", "/analyze", files={"file": (f.name, f.getvalue(), f.type)}, data={"user_id": st.session_state['user_id']})
+                    except Exception as e: st.error(f"Failed to process {f.name}")
                     progress_bar.progress((i + 1) / total_files)
                 
                 status_text.success(f"✅ Done! Processed {total_files} reports.")
                 time.sleep(1.5)
                 st.rerun()
 
-    # Sidebar History
     st.sidebar.header("📜 Report History")
     res_hist = safe_api_call("GET", f"/user/{st.session_state['user_id']}/history")
     try:
@@ -381,12 +313,10 @@ def render_home():
         else: st.sidebar.info("No reports.")
     except: st.sidebar.warning("Syncing...")
     
-    # Sidebar Account Menu
     st.sidebar.divider()
     if st.sidebar.button("👤 Account Settings"): st.session_state['page'] = 'Settings'; st.rerun()
     if st.sidebar.button("Logout"): st.session_state.clear(); st.rerun()
 
-    # Report View
     if selected_report_id:
         res_rep = safe_api_call("GET", f"/report/{selected_report_id}")
         if res_rep.status_code == 200:
@@ -427,15 +357,11 @@ def render_history():
         if res.status_code == 200:
             raw_data = res.json().get("data", [])
             df = pd.DataFrame(raw_data)
-
             if not df.empty:
                 df['Date'] = df['Date'].apply(format_date_ui)
-                
-                # --- CLEAN VIEW: Only show relevant medical columns ---
                 display_cols = ["Date", "Test Name", "Value", "Unit", "Reference", "Lab"]
                 cols_to_show = [c for c in display_cols if c in df.columns]
-
-                st.dataframe(df[cols_to_show], use_container_width=True, hide_index=True)
+                st.dataframe(df[cols_to_show], width="stretch", hide_index=True)
             else: st.info("No records.")
     except Exception as e: st.error(f"Error loading history: {e}")
 
@@ -451,12 +377,9 @@ def show_trend():
                 st.session_state['trend_raw'] = res.json()
                 st.session_state['last_t'] = test
                 st.session_state['trend_analysis'] = None
-            else:
-                st.error(f"Could not load trend. (Status: {res.status_code})")
-                return
+            else: st.error(f"Could not load trend. (Status: {res.status_code})"); return
             
         hist = st.session_state['trend_raw'].get('history', [])
-        
         if hist:
             dates = [datetime.strptime(h['date'], "%Y-%m-%d").date() for h in hist]
             if len(dates) > 1:
@@ -469,7 +392,7 @@ def show_trend():
             with st.expander("Data Table"):
                 df = pd.DataFrame(filtered_hist)
                 df['Date'] = df['date'].apply(format_date_ui)
-                st.dataframe(df[['Date', 'value', 'unit', 'min_ref', 'max_ref', 'lab']], use_container_width=True)
+                st.dataframe(df[['Date', 'value', 'unit', 'min_ref', 'max_ref', 'lab']], width="stretch")
 
             with st.expander("Trend Graph", expanded=True):
                 chart_data = []
@@ -480,10 +403,8 @@ def show_trend():
                 if chart_data:
                     df_c = pd.DataFrame(chart_data).sort_values(by="SortDate")
                     mode = st.radio("Mode:", ["Universal Score", "Absolute Value"], horizontal=True)
-                    if "Universal" in mode:
-                        y_f, y_s, c, fmt = ("Score", alt.Scale(domain=[0, 100]), "#2ECC71", "d") 
-                    else:
-                        y_f, y_s, c, fmt = ("Value", alt.Scale(zero=False, padding=20), "#3498DB", ".1f")
+                    if "Universal" in mode: y_f, y_s, c, fmt = ("Score", alt.Scale(domain=[0, 100]), "#2ECC71", "d") 
+                    else: y_f, y_s, c, fmt = ("Value", alt.Scale(zero=False, padding=20), "#3498DB", ".1f")
                     
                     base = alt.Chart(df_c).encode(x=alt.X('Date', sort=df_c['SortDate'].tolist()), tooltip=['Date', 'Value', 'Score'])
                     line = base.mark_line(color=c).encode(y=alt.Y(y_f, scale=y_s))
@@ -504,10 +425,8 @@ def show_trend():
                       st.session_state['trend_analysis'] = res.json().get('analysis')
             
             with st.expander("🤖 AI Analysis", expanded=True):
-                if st.session_state.get('trend_analysis'):
-                    st.markdown(st.session_state['trend_analysis'])
-                else:
-                    st.markdown(st.session_state['trend_raw'].get('analysis', 'Click "Analyze Period" to generate detailed insights.'))
+                if st.session_state.get('trend_analysis'): st.markdown(st.session_state['trend_analysis'])
+                else: st.markdown(st.session_state['trend_raw'].get('analysis', 'Click "Analyze Period" to generate detailed insights.'))
         else: st.info("No history.")
 
 # --- ROUTER ---
