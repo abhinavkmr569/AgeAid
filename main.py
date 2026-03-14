@@ -21,16 +21,22 @@ from datetime import datetime
 # --- CRITICAL IMPORTS FOR GOOGLE AUTH ---
 from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware # <--- CRITICAL FIX FOR PI
 from dotenv import load_dotenv
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-# Base.metadata.create_all(bind=engine) # Alembic handles this now
 app = FastAPI(title="Health AI")
 
-# --- AUTH MIDDLEWARE (REQUIRED FOR GOOGLE) ---
+# --- 1. PROXY MIDDLEWARE (THE FIX FOR RASPBERRY PI) ---
+# This tells FastAPI: "Trust Cloudflare when it says the traffic is HTTPS"
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+
+# --- 2. SESSION MIDDLEWARE ---
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SECRET_KEY", "unsafe-secret"))
 
 # --- GOOGLE OAUTH SETUP ---
@@ -46,17 +52,18 @@ oauth.register(
 # --- GOOGLE AUTH ENDPOINTS ---
 @app.get("/auth/login")
 async def login_via_google(request: Request):
-    # This MUST match the URI you put in Google Console
-    env_type = os.environ.get("ENV_TYPE", "production")
-    if env_type == "development":
-        # Force Localhost for Laptop Dev
-        redirect_uri = "http://localhost:8080/auth/callback"
-    else:
-        # Production (Raspberry Pi / Cloud)
-        # This matches the authorized URI in Google Console
-        redirect_uri = "https://api.example.com/auth/callback"
+    # DYNAMIC LOGIC: Matches your app.py exactly
+    # 1. Get the base URL from .env (e.g. https://api.example.com)
+    base_url = os.environ.get("PUBLIC_API_URL", "http://localhost:8080")
     
-    print(f"🔄 Initiating Google Auth. Redirecting to: {redirect_uri}") # Debug log
+    # 2. Clean up any trailing slash
+    if base_url.endswith("/"):
+        base_url = base_url[:-1]
+        
+    # 3. Construct the callback URL
+    redirect_uri = f"{base_url}/auth/callback"
+    
+    print(f"🔄 Google Auth Redirect URI: {redirect_uri}") 
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 @app.get("/auth/callback")
@@ -77,7 +84,7 @@ async def auth_via_google(request: Request, db: Session = Depends(get_db)):
             empty_log = json.dumps([])
             user = User(
                 email=email,
-                hashed_password=pwd_context.hash("GOOGLE_OAUTH_" + os.urandom(10).hex()), # Dummy password
+                hashed_password=pwd_context.hash("GOOGLE_OAUTH_" + os.urandom(10).hex()),
                 full_name=name,
                 dob="2000-01-01", gender="Other", activity_level="Moderate",
                 diet_type="Omnivore", alcohol_freq="None", smoking_status="Never",
@@ -85,16 +92,17 @@ async def auth_via_google(request: Request, db: Session = Depends(get_db)):
             )
             db.add(user); db.commit(); db.refresh(user)
             
-        # 3. Redirect to Frontend with Login Session
-        if os.environ.get("ENV_TYPE") == "development":
-             frontend_url = "http://localhost:8501"
-        else:
-             frontend_url = "https://api.example.com"
+        # 3. Redirect to Frontend
+        # We use the same env variable to know where to send the user back
+        frontend_url = os.environ.get("PUBLIC_API_URL", "http://localhost:8080")
+        if frontend_url.endswith("/"): 
+            frontend_url = frontend_url[:-1]
              
         return RedirectResponse(url=f"{frontend_url}/?login_success=true&uid={user.id}&uname={user.full_name}")
         
     except Exception as e:
-        frontend_url = os.environ.get("STREAMLIT_PUBLIC_URL", "http://localhost:8501")
+        print(f"❌ Auth Error: {e}")
+        frontend_url = os.environ.get("PUBLIC_API_URL", "http://localhost:8080")
         return RedirectResponse(url=f"{frontend_url}/?login_error={str(e)}")
 
 
@@ -320,3 +328,4 @@ def get_latest_report(user_id: int, db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8080)
+
