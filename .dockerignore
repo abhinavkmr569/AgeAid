@@ -1,0 +1,28 @@
+# Secrets. These must never be baked into an image layer. The app receives
+# them at runtime via docker-compose's env_file.
+.env
+.env.*
+keys.txt
+client_secret*.json
+root.crt
+
+# Git history (contains the pre-rotation credentials)
+.git
+.gitignore
+
+# Generated codebase dumps
+full_codebase*.txt
+y.txt
+
+# Python noise
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Local tooling
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

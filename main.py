@@ -37,7 +37,13 @@ app = FastAPI(title="Health AI")
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 # --- 2. SESSION MIDDLEWARE ---
-app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SECRET_KEY", "unsafe-secret"))
+# No default: a fallback key would let anyone forge session cookies, so fail
+# loudly at startup instead of silently serving with a known secret.
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY is not set. Add it to your .env before starting the app.")
+
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
 # --- GOOGLE OAUTH SETUP ---
 oauth = OAuth()

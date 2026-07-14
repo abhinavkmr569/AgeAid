@@ -5,7 +5,9 @@ services:
     restart: always
     environment:
       POSTGRES_USER: healthuser
-      POSTGRES_PASSWORD: ***REMOVED-DB-PASSWORD***
+      # Read from .env (gitignored). Must match the password in DATABASE_URL.
+      # Compose refuses to start if it is unset, rather than falling back.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       POSTGRES_DB: healthdb
     volumes:
       - postgres_data:/var/lib/postgresql/data
