@@ -1,15 +1,50 @@
 # AgeAid — Health Trend Tracker
 
-A privacy-first AI health dashboard that extracts data from blood reports, normalizes medical terms, and visualizes long-term trends. Self-hosted on a Raspberry Pi with Google Gemini.
+A privacy-first AI health dashboard that extracts data from blood reports and
+**reasons about it** — reading your lab history together with your lifestyle and
+medical background to explain *why* a marker is moving, not just that it moved.
+Self-hosted on a Raspberry Pi with Google Gemini.
 
 ## 🚀 Features
 
 - **AI Extraction** — uses Google Gemini to read PDFs and images of lab reports.
-- **Trend Analysis** — visualizes cholesterol, sugar, and thyroid levels over time.
+- **Contextual Inference** — the core of the app. Correlates lab trends against
+  your lifestyle, medical history, and health journal to interpret the change and
+  suggest what to do about it. See [How the analysis works](#-how-the-analysis-works).
+- **Trend Analysis** — visualizes cholesterol, sugar, thyroid and other markers
+  over time, normalizing test names across labs that spell them differently.
 - **Smart Auth** — sign in with Google (OAuth2) or email/password.
-- **Privacy First** — "right to erasure" (delete account) built in.
+- **Privacy First** — "right to erasure" (delete account) built in, and AI
+  analysis runs only with explicit user consent.
 - **Cost Tracking** — monitors AI token usage per report.
 - **Dockerized** — app and database run together via Docker Compose, with Alembic migrations applied on startup.
+
+## 🧠 How the Analysis Works
+
+A number on a lab report means little on its own. The point of this project is the
+step *after* extraction: putting a result in the context of the person it belongs
+to.
+
+When you ask about a marker, the app assembles four things and reasons over them
+together:
+
+| Input | Source | Why it matters |
+| --- | --- | --- |
+| **Lab timeline** | every past report, grouped by date | direction and rate of change, not a single snapshot |
+| **Related markers** | `clusters.py` | a lipid result is read alongside the rest of the lipid panel, not in isolation |
+| **Lifestyle + profile** | signup and profile (diet, activity, medical history, age, gender) | the same value means different things for different people |
+| **Health journal** | your free-text notes ("started running", "was ill in March") | supplies the *cause* a number alone cannot explain |
+
+Gemini then returns a trend assessment (improving or worsening), an explicit
+correlation between the trend and your lifestyle and journal entries, and
+actionable suggestions — always with a disclaimer to consult a doctor.
+
+The practical difference: a chart can tell you your LDL rose 15%. This tells you
+it rose over the period you recorded a diet change, that your HDL moved with it,
+and what is worth discussing with your doctor.
+
+> **Not a diagnostic tool.** Output is AI-generated interpretation, not medical
+> advice, and it is only ever generated for users who opt in.
 
 ## 🛠️ Tech Stack
 
