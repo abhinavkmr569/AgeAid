@@ -80,13 +80,11 @@ def debug_users(db: Session = Depends(get_db)):
 """
 **Rebuild and Run:**
 bash
-docker rm -f health-server
-docker build -t health-app .
-docker run -d --name health-server -p 8080:8080 -p 8501:8501 --env-file .env -v $env:APPDATA\postgresql:/root/.postgresql health-app
+docker compose up -d --build
 
 
 **Check in Browser:**
-Go to: `http://localhost:8080/debug/users`
+Go to: `http://localhost:8502/debug/users`
 
 * **If this returns users:** Your app is working perfectly, and your local `check_users.py` script was just looking at the wrong DB.
 * **If this returns empty:** The signup process is silently failing.

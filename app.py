@@ -26,7 +26,7 @@ API_URL = "http://127.0.0.1:8502"
 
 
 # LOGIC: Check .env first, fallback to localhost.
-PUBLIC_API_URL = os.environ.get("PUBLIC_API_URL", "http://localhost:8080")
+PUBLIC_API_URL = os.environ.get("PUBLIC_API_URL", "http://localhost:8502")
 
 # Remove trailing slash if present to avoid double // issues
 if PUBLIC_API_URL.endswith("/"):

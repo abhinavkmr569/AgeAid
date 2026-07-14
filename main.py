@@ -60,7 +60,7 @@ oauth.register(
 async def login_via_google(request: Request):
     # DYNAMIC LOGIC: Matches your app.py exactly
     # 1. Get the base URL from .env (e.g. https://api.example.com)
-    base_url = os.environ.get("PUBLIC_API_URL", "http://localhost:8080")
+    base_url = os.environ.get("PUBLIC_API_URL", "http://localhost:8502")
     
     # 2. Clean up any trailing slash
     if base_url.endswith("/"):
@@ -334,5 +334,5 @@ def get_latest_report(user_id: int, db: Session = Depends(get_db)):
     return get_report_detail(report.id, db)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8502)
 
