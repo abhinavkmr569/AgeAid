@@ -75,8 +75,11 @@ SECRET_KEY=some_long_random_string
 
 # URLs
 ENV_TYPE=development
-PUBLIC_API_URL=http://localhost:8502
+PUBLIC_API_URL=http://localhost:8502   # FastAPI, for browser-facing OAuth redirects
+FRONTEND_URL=http://localhost:8501     # where users land after a Google login
 ```
+
+In production both point at your public domain, e.g. `https://your-domain.com`.
 
 Compose parses `.env` strictly: every non-comment line must be `KEY=value`. Stray prose
 or separator lines will make `docker compose up` fail to read the file.
