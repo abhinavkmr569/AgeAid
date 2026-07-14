@@ -102,8 +102,13 @@ def analyze_trend_with_gemini(user_profile, primary_target, history_by_date, cur
     
     PATIENT: {user_profile.get('name')} ({user_profile.get('gender')}, DOB: {user_profile.get('birth_date')})
     HISTORY: {user_profile.get('medical_history')}
-    LIFESTYLE: Diet: {user_profile.get('diet')}, Activity: {user_profile.get('activity')}
-    
+    LIFESTYLE:
+      - Diet: {user_profile.get('diet')}
+      - Activity: {user_profile.get('activity')}
+      - Alcohol: {user_profile.get('alcohol')}
+      - Smoking: {user_profile.get('smoke')}
+      - Sleep: {user_profile.get('sleep')} hours/night
+
     HEALTH JOURNAL (Context):
     {current_remark}
     

@@ -32,7 +32,7 @@ together:
 | --- | --- | --- |
 | **Lab timeline** | every past report, grouped by date | direction and rate of change, not a single snapshot |
 | **Related markers** | `clusters.py` | a lipid result is read alongside the rest of the lipid panel, not in isolation |
-| **Lifestyle + profile** | signup and profile (diet, activity, medical history, age, gender) | the same value means different things for different people |
+| **Lifestyle + profile** | signup and profile (diet, activity, alcohol, smoking, sleep, medical history, age, gender) | the same value means different things for different people |
 | **Health journal** | your free-text notes ("started running", "was ill in March") | supplies the *cause* a number alone cannot explain |
 
 Gemini then returns a trend assessment (improving or worsening), an explicit
