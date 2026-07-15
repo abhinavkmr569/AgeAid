@@ -132,15 +132,15 @@ single-head migrations, and a complete `.env` template.
 
 ## Leaked credentials
 
-The Gemini API key was committed to this **public** repository in the initial
-commit, inside a file called `New Text Document.txt` (which was really a copy of
-`.env`). The CockroachDB password was in `postgresql_cockroachdb.txt` in the same
-commit. Both were harvested, and Google suspended the project
-(`REDACTED-PROJECT-ID`) for *"abusive activity consistent with hijacking"*.
+The Gemini API key was committed to the repository in the initial commit, inside
+a file called `New Text Document.txt` (which was really a copy of `.env`). The
+CockroachDB password was in `postgresql_cockroachdb.txt` in the same commit. Both
+were harvested, and the Google project was suspended for *"abusive activity
+consistent with hijacking"* (since reinstated).
 
 | Credential | Where it leaked | Status |
 | --- | --- | --- |
-| Gemini API key | `New Text Document.txt`, initial commit | Project reinstated 15 Jul 2026. **Delete the leaked key and issue a new one.** |
+| Gemini API key | `New Text Document.txt`, initial commit | Leaked key **deleted**; new key issued under the reinstated project. |
 | CockroachDB password | `postgresql_cockroachdb.txt` | Cluster is dead — no action needed. |
 | GitHub PAT | `deploy.sh` | Dead — GitHub auto-revoked it (verified: HTTP 401). |
 | Postgres password | `alembic.ini`, `docker-compose.yml` | LAN-only, low risk. Rotate at leisure. |
@@ -184,50 +184,36 @@ git reset --hard origin/main   # .env is untracked, so it survives
 
 ## Still outstanding
 
-1. **Delete the CockroachDB cluster** — the only leaked credential that is still
-   live and fully under your control.
-2. **Appeal the Google project suspension.** The console is read-only while
-   suspended, so the key cannot be revoked until it is reinstated.
-3. **On reinstatement:** delete the leaked Gemini key, issue a new one, and add
-   `http://localhost:8502/auth/callback` to the OAuth redirect URIs — the
-   registered one still points at 8080.
-4. **Repoint the Cloudflare Tunnel** `/auth*` rule from `localhost:8080` to
-   `localhost:8502`. Google login stays broken until this is done. The `/` →
-   `8501` rule is unchanged. **Open question — shared with item 7:** the tunnel is
-   not running on the Pi (`cloudflared` is absent; the subdomain forwards only to
-   `8501`, and `/auth/login` never reaches `8502`). Confirm with the friend who
-   owns the domain *where the tunnel runs and which port it forwards* before
-   editing any rule — the answer also decides how item 7 locks the origin.
-5. **Rotate the Postgres password.** Note that editing `.env` alone does nothing —
-   Postgres only applies `POSTGRES_PASSWORD` when initializing an *empty* volume.
-   Change it inside the database and in `.env` together:
-   ```bash
-   docker exec -it health-db psql -U healthuser -d healthdb \
-     -c "ALTER USER healthuser WITH PASSWORD 'new-password';"
-   ```
-6. **Consider upgrading the Gemini models.** `extractor.py` currently starts on
-   `gemini-2.5-flash-lite` and escalates to `gemini-2.5-pro-lite` — a model that
-   may not exist, in which case that fallback branch has been failing. Suggested:
-   `gemini-3.1-flash-lite` primary ($0.25/$1.50 per 1M tokens), escalating to
-   `gemini-3.5-flash` ($1.50/$9.00). Confirm the model IDs with a working key
-   before changing anything. There is no "Gemini 3.5 Flash Lite".
-7. **Lock down the origin.** Compose publishes ports **8501 and 8502 on
-   `0.0.0.0`**, and the Pi has a public IP (`REDACTED-IP`), so both Streamlit
-   and the FastAPI backend are reachable **directly from the open internet**,
-   bypassing the tunnel entirely — internet scanners already hit `:8502` with
-   `HEAD /` probes. Anyone can reach the raw API without going through Cloudflare.
-   Bind the published ports to loopback so only the tunnel (running locally) can
-   reach them — in `docker-compose.yml`:
+1. **Expose the OAuth backend publicly.** Google login runs on FastAPI
+   (port 8502), but the public hostname currently reaches only Streamlit
+   (port 8501), so `/auth/login` and `/auth/callback` never hit the backend and
+   login bounces back to the home page. Route `/auth/*` to 8502 — either a second
+   hostname pointing at the backend, or a path rule on the reverse proxy — then
+   set `PUBLIC_API_URL` to that backend URL and add its `/auth/callback` to the
+   Google OAuth **Authorized redirect URIs**. (Email/password login is unaffected;
+   the frontend reaches the backend internally over `localhost:8502`.)
+2. **Restrict the published ports to the tunnel.** Compose publishes 8501/8502 on
+   `0.0.0.0`, so the services can be reached directly rather than only through the
+   tunnel. Bind them to loopback in `docker-compose.yml`:
    ```yaml
    ports:
      - "127.0.0.1:8501:8501"
      - "127.0.0.1:8502:8502"
    ```
-   If the tunnel does **not** run on the Pi itself (it appears to run on the
-   friend's side, reaching the Pi over the public IP), loopback binding will cut
-   it off — in that case firewall 8501–8502 to the tunnel's source address
-   instead (`ufw` rule), rather than binding to `127.0.0.1`. Confirm where the
-   tunnel originates before applying.
+   If the tunnel runs on a separate host and reaches this machine over the
+   network, loopback binding would cut it off — in that case firewall 8501–8502 to
+   the tunnel's source address instead. Confirm where the tunnel originates first.
+3. **Rotate the local Postgres password at leisure** (LAN-only). Editing `.env`
+   alone does nothing — Postgres applies `POSTGRES_PASSWORD` only when initializing
+   an *empty* volume. Change it in the database and in `.env` together:
+   ```bash
+   docker exec -it health-db psql -U healthuser -d healthdb \
+     -c "ALTER USER healthuser WITH PASSWORD 'new-password';"
+   ```
+4. **Consider upgrading the Gemini models.** `extractor.py` starts on
+   `gemini-2.5-flash-lite` and escalates to `gemini-2.5-pro-lite` — a model that
+   may not exist, in which case that fallback branch has been failing. Confirm the
+   current model IDs against the API before changing anything.
 
 ## Known drift
 
