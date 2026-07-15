@@ -140,20 +140,36 @@ commit. Both were harvested, and Google suspended the project
 
 | Credential | Where it leaked | Status |
 | --- | --- | --- |
-| Gemini API key | `New Text Document.txt`, initial commit | Suspended by Google. **Rotate on reinstatement.** |
-| CockroachDB password | `postgresql_cockroachdb.txt` | **Still live. Rotate or delete the cluster.** |
+| Gemini API key | `New Text Document.txt`, initial commit | Project reinstated 15 Jul 2026. **Delete the leaked key and issue a new one.** |
+| CockroachDB password | `postgresql_cockroachdb.txt` | Cluster is dead — no action needed. |
 | GitHub PAT | `deploy.sh` | Dead — GitHub auto-revoked it (verified: HTTP 401). |
 | Postgres password | `alembic.ini`, `docker-compose.yml` | LAN-only, low risk. Rotate at leisure. |
 | Google OAuth secret | — | **Never committed.** |
 
-**History was rewritten** with `git filter-repo` to purge all four values from all
-28 commits on `main` and `development`, and force-pushed. Verified absent from
-every commit, and GitHub now returns 404 for the old commit hashes. `.gitignore`
-was also rewritten (`a2898a9`) — it had been corrupted with UTF-16 NUL bytes by a
+**History was rewritten** with `git filter-repo`: the five credential-dump text
+files (`New Text Document.txt`, `postgresql_cockroachdb.txt`, `howTo.txt`,
+`checkpoint1.txt`, `plan.txt`) were removed outright, and the GitHub token and
+Postgres password embedded in `deploy.sh` and `alembic.ini` were replaced across
+every commit on `main` and `development`.
+
+> **The first rewrite did not persist — corrected 15 Jul 2026.** A stale clone
+> still holding the original history had pushed it back, so `4f06af0` and the
+> leaked files resurfaced on `origin` (the earlier "verified absent / 404" claim
+> here was wrong). The rewrite was redone from a fresh clone of `origin`; the new
+> root commit is `85878ad`, `4f06af0` no longer resolves on the remote, and the
+> dump files are gone from all history. **Every clone must be hard-reset (below),
+> or the next push from a stale one resurrects the leak again.**
+
+> **Note:** every commit hash cited elsewhere in this document predates the
+> rewrite and no longer resolves. The changes they describe are intact under new
+> hashes.
+
+`.gitignore` was also rewritten — it had been corrupted with UTF-16 NUL bytes by a
 PowerShell `Out-File`, and its secret patterns now glob properly.
 
 > **This closes the door; it does not un-copy what was taken.** Scrubbing history
-> is not a substitute for rotating the keys.
+> is not a substitute for rotating the keys — and the repo was public during the
+> leak window, so treat every value above as harvested regardless.
 
 ### Because history was rewritten
 
@@ -177,7 +193,11 @@ git reset --hard origin/main   # .env is untracked, so it survives
    registered one still points at 8080.
 4. **Repoint the Cloudflare Tunnel** `/auth*` rule from `localhost:8080` to
    `localhost:8502`. Google login stays broken until this is done. The `/` →
-   `8501` rule is unchanged.
+   `8501` rule is unchanged. **Open question — shared with item 7:** the tunnel is
+   not running on the Pi (`cloudflared` is absent; the subdomain forwards only to
+   `8501`, and `/auth/login` never reaches `8502`). Confirm with the friend who
+   owns the domain *where the tunnel runs and which port it forwards* before
+   editing any rule — the answer also decides how item 7 locks the origin.
 5. **Rotate the Postgres password.** Note that editing `.env` alone does nothing —
    Postgres only applies `POSTGRES_PASSWORD` when initializing an *empty* volume.
    Change it inside the database and in `.env` together:
@@ -191,6 +211,23 @@ git reset --hard origin/main   # .env is untracked, so it survives
    `gemini-3.1-flash-lite` primary ($0.25/$1.50 per 1M tokens), escalating to
    `gemini-3.5-flash` ($1.50/$9.00). Confirm the model IDs with a working key
    before changing anything. There is no "Gemini 3.5 Flash Lite".
+7. **Lock down the origin.** Compose publishes ports **8501 and 8502 on
+   `0.0.0.0`**, and the Pi has a public IP (`REDACTED-IP`), so both Streamlit
+   and the FastAPI backend are reachable **directly from the open internet**,
+   bypassing the tunnel entirely — internet scanners already hit `:8502` with
+   `HEAD /` probes. Anyone can reach the raw API without going through Cloudflare.
+   Bind the published ports to loopback so only the tunnel (running locally) can
+   reach them — in `docker-compose.yml`:
+   ```yaml
+   ports:
+     - "127.0.0.1:8501:8501"
+     - "127.0.0.1:8502:8502"
+   ```
+   If the tunnel does **not** run on the Pi itself (it appears to run on the
+   friend's side, reaching the Pi over the public IP), loopback binding will cut
+   it off — in that case firewall 8501–8502 to the tunnel's source address
+   instead (`ufw` rule), rather than binding to `127.0.0.1`. Confirm where the
+   tunnel originates before applying.
 
 ## Known drift
 
