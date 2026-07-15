@@ -60,6 +60,25 @@ and what is worth discussing with your doctor.
 > Postgres container, so the old `root.crt` / `sslmode=verify-full` certificate setup is
 > no longer needed.
 
+## 🗺️ Architecture
+
+```mermaid
+flowchart TB
+    U([Browser]) -->|HTTPS| CF[Cloudflare Tunnel]
+    CF -->|"/auth*"| API
+    CF -->|"/"| ST
+
+    subgraph PI [Raspberry Pi · Docker Compose]
+        ST[Streamlit frontend :8501] -->|REST| API[FastAPI backend :8502]
+        API --> DB[(PostgreSQL 15)]
+        API --> NORM[normalizer.py]
+        API --> CLU[clusters.py]
+        MIG[Alembic migrations] -.->|on startup| DB
+    end
+
+    API -->|report PDFs / images| GEM[Google Gemini]
+```
+
 ## 📂 Project Structure
 
 ```
